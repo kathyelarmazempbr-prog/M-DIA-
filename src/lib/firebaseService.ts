@@ -359,3 +359,21 @@ export const excluirLancamento = async (docId: string) => {
   }
 };
 
+/**
+ * LIMPEZA TOTAL DE LANÇAMENTOS DO BANCO (RESET OFICIAL)
+ */
+export const apagarTodosLancamentos = async (): Promise<void> => {
+  if (!db) return;
+  try {
+    const colRef = collection(db, COLLECTION_LANCAMENTOS);
+    const snapshot = await getDocs(colRef);
+    const deletePromises = snapshot.docs.map((docSnap) =>
+      deleteDoc(doc(db, COLLECTION_LANCAMENTOS, docSnap.id))
+    );
+    await Promise.all(deletePromises);
+    console.log('Todos os lançamentos do Firestore foram excluídos.');
+  } catch (e) {
+    console.error('Erro ao apagar todos os lançamentos no Firestore:', e);
+  }
+};
+

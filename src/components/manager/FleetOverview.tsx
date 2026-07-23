@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 export const FleetOverview: React.FC = () => {
-  const { trips, users, updateTrip, deleteTrip, getPerformanceColor } = useApp();
+  const { trips, users, updateTrip, deleteTrip, clearAllTrips, getPerformanceColor } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDriverId, setSelectedDriverId] = useState('');
@@ -34,6 +34,20 @@ export const FleetOverview: React.FC = () => {
   // Modals state
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+
+  const handleConfirmClearAll = async () => {
+    setIsClearing(true);
+    try {
+      await clearAllTrips();
+      setShowClearModal(false);
+    } catch (err) {
+      console.error('Erro ao limpar banco de dados:', err);
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const driversList = useMemo(() => users.filter((u) => u.role === 'driver'), [users]);
 
@@ -117,6 +131,49 @@ export const FleetOverview: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Clear All Confirmation Modal */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-3 bg-rose-100 rounded-xl">
+                <Trash2 className="h-6 w-6 stroke-[2.2]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg">Zerar Todos os Registros</h3>
+                <p className="text-xs text-slate-500">Ação administrativa de reset total</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+              Esta ação irá <strong>excluir permanentemente todos os {trips.length} lançamentos</strong> do banco de dados Firestore e do histórico do aplicativo para iniciar o uso oficial do zero.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowClearModal(false)}
+                disabled={isClearing}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmClearAll}
+                disabled={isClearing}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-md shadow-rose-600/20 disabled:opacity-50"
+              >
+                {isClearing ? (
+                  <span>Limpando banco...</span>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    <span>Confirmar Exclusão Total</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Proof Modal */}
       <ImageModal imageUrl={selectedProofUrl} onClose={() => setSelectedProofUrl(null)} />
 
@@ -163,20 +220,30 @@ export const FleetOverview: React.FC = () => {
 
       {/* Filter Control Box */}
       <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-xs space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
           <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
             <Filter className="h-4 w-4 text-emerald-600" />
             <span>Filtros do Painel Gerencial</span>
           </h3>
-          {(searchQuery || selectedDriverId || selectedCavalo || selectedSider || startDate || endDate) && (
+          <div className="flex items-center gap-2 sm:gap-3">
+            {(searchQuery || selectedDriverId || selectedCavalo || selectedSider || startDate || endDate) && (
+              <button
+                onClick={handleClearFilters}
+                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-emerald-50 transition-colors"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Limpar Filtros</span>
+              </button>
+            )}
             <button
-              onClick={handleClearFilters}
-              className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+              onClick={() => setShowClearModal(true)}
+              className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs"
+              title="Apagar permanentemente todas as viagens do banco de dados"
             >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span>Limpar Filtros</span>
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Zerar Registros (Reset)</span>
             </button>
-          )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">

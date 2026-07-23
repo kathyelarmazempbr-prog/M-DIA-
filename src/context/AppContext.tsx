@@ -9,6 +9,7 @@ import {
   autenticarNoFirebase,
   deslogarDoFirebase,
   escutarSessaoFirebase,
+  apagarTodosLancamentos,
 } from '../lib/firebaseService';
 
 interface AppContextType {
@@ -26,6 +27,7 @@ interface AppContextType {
   updateUser: (updatedUser: User) => void;
   deleteUser: (userId: string) => void;
   resetToDefaultData: () => void;
+  clearAllTrips: () => Promise<void>;
   getPerformanceLevel: (kml: number) => 'excellent' | 'regular' | 'low';
   getPerformanceColor: (kml: number) => {
     bg: string;
@@ -76,7 +78,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
-  // Inscreve no Firestore em tempo real com escopo por motorista (where("cod_motorista", "==", usuarioLogado))
+  // Inscreve no Firestore em tempo real sem restrição para o Gestor
   useEffect(() => {
     if (!currentUser) {
       setTrips([]);
@@ -89,30 +91,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         : undefined;
 
     const unsubscribe = ouvirLancamentosEmTempoReal((firebaseTrips) => {
-      if (firebaseTrips && firebaseTrips.length > 0) {
-        setTrips(firebaseTrips);
-      } else if (currentUser.role === 'admin') {
-        // Se for gestor e o banco estiver vazio, semeia os lançamentos padrão
-        INITIAL_TRIPS.forEach((t) => {
-          salvarLancamento({
-            id_motorista: t.driverId,
-            cod_motorista: t.driverCode,
-            nome_motorista: t.driverName,
-            data_registro: t.date,
-            destino: t.destinationName,
-            codigo_destino: t.destinationCode,
-            origem: t.originName,
-            codigo_origem: t.originCode,
-            placa_cavalo: t.cavaloPlate,
-            placa_carreta: t.siderPlate,
-            media_consumo: t.kml,
-            url_comprovante: t.proofUrl,
-            observacoes: t.notes,
-          }).catch(console.error);
-        });
-      } else {
-        setTrips([]);
-      }
+      setTrips(firebaseTrips || []);
     }, filtroSeguro);
 
     return () => {
@@ -293,6 +272,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
   };
 
+  const clearAllTrips = async (): Promise<void> => {
+    setTrips([]);
+    localStorage.removeItem(LOCAL_STORAGE_TRIPS_KEY);
+    await apagarTodosLancamentos();
+  };
+
   const getPerformanceLevel = (kml: number): 'excellent' | 'regular' | 'low' => {
     if (kml >= thresholds.excellentMin) return 'excellent';
     if (kml >= thresholds.regularMin) return 'regular';
@@ -345,6 +330,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateUser,
         deleteUser,
         resetToDefaultData,
+        clearAllTrips,
         getPerformanceLevel,
         getPerformanceColor,
       }}
