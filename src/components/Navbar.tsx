@@ -7,7 +7,14 @@ export const Navbar: React.FC = () => {
 
   if (!currentUser) return null;
 
-  const isManager = currentUser.role === 'admin';
+  const isManager = currentUser.role !== 'driver';
+
+  const roleLabel =
+    currentUser.role === 'developer'
+      ? 'DESENVOLVEDOR'
+      : isManager
+      ? 'SUPERVISOR'
+      : `Cód. Motorista: ${currentUser.code}`;
 
   return (
     <header className="sticky top-0 z-40 bg-white text-slate-800 shadow-xs border-b border-slate-100">
@@ -42,7 +49,7 @@ export const Navbar: React.FC = () => {
                 <div className="text-left">
                   <span className="block font-bold leading-tight text-slate-900">{currentUser.name}</span>
                   <span className="block text-[10px] text-slate-500 font-medium">
-                    {isManager ? 'SUPERVISOR' : `Cód. Motorista: ${currentUser.code}`}
+                    {roleLabel}
                   </span>
                 </div>
               </div>

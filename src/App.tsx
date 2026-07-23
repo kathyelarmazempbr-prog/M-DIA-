@@ -16,7 +16,7 @@ const MainContent: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans antialiased">
       <Navbar />
       <main className="flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 pt-6">
-        {currentUser.role === 'admin' ? <ManagerDashboard /> : <DriverDashboard />}
+        {currentUser.role !== 'driver' ? <ManagerDashboard /> : <DriverDashboard />}
       </main>
     </div>
   );

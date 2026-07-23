@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { User, UserRole } from '../../types';
-import { UserPlus, Edit2, Key, ShieldCheck, UserCheck, Trash2, Check, X, Lock, Phone } from 'lucide-react';
+import { UserPlus, Edit2, ShieldCheck, UserCheck, Trash2, Check, X, Lock, Code } from 'lucide-react';
 
 export const UserManagement: React.FC = () => {
   const { users, addUser, updateUser, deleteUser, currentUser } = useApp();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  // Check if current user is Desenvolvedor/Admin
+  const canManageUsers = currentUser?.role === 'developer' || currentUser?.role === 'admin';
 
   // Form states
   const [name, setName] = useState('');
@@ -22,6 +25,7 @@ export const UserManagement: React.FC = () => {
   const [active, setActive] = useState(true);
 
   const openNewUserModal = () => {
+    if (!canManageUsers) return;
     setEditingUser(null);
     setName('');
     setCode(`MOT-${100 + users.length + 1}`);
@@ -37,6 +41,7 @@ export const UserManagement: React.FC = () => {
   };
 
   const openEditUserModal = (usr: User) => {
+    if (!canManageUsers) return;
     setEditingUser(usr);
     setName(usr.name);
     setCode(usr.code);
@@ -53,6 +58,7 @@ export const UserManagement: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageUsers) return;
 
     if (editingUser) {
       updateUser({
@@ -93,21 +99,40 @@ export const UserManagement: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <ShieldCheck className="h-6 w-6 text-emerald-600" />
-            <span>Gestão de Usuários e Permissões (RBAC)</span>
+            <span>Gestão de Usuários e Permissões</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Cadastre novos motoristas ou gerentes, redefina senhas e gerencie acessos ao sistema.
+            Gerencie os acessos do sistema por perfil (Motorista, Supervisor e Desenvolvedor).
           </p>
         </div>
 
-        <button
-          onClick={openNewUserModal}
-          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 text-xs sm:text-sm transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 shrink-0"
-        >
-          <UserPlus className="h-4 w-4 stroke-[2.5]" />
-          <span>Cadastrar Novo Usuário</span>
-        </button>
+        {canManageUsers ? (
+          <button
+            onClick={openNewUserModal}
+            className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 text-xs sm:text-sm transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 shrink-0"
+          >
+            <UserPlus className="h-4 w-4 stroke-[2.5]" />
+            <span>Cadastrar Novo Usuário</span>
+          </button>
+        ) : (
+          <div
+            className="rounded-xl bg-slate-100 text-slate-400 font-semibold px-4 py-2.5 text-xs sm:text-sm flex items-center gap-2 shrink-0 cursor-not-allowed border border-slate-200"
+            title="Apenas usuários com perfil Desenvolvedor podem cadastrar novos usuários"
+          >
+            <Lock className="h-4 w-4" />
+            <span>Cadastrar Novo Usuário (Restrito)</span>
+          </div>
+        )}
       </div>
+
+      {!canManageUsers && (
+        <div className="rounded-xl bg-amber-50 p-3.5 text-xs text-amber-800 border border-amber-200 flex items-center gap-2">
+          <Lock className="h-4 w-4 text-amber-600 shrink-0" />
+          <span>
+            <strong>Modo de Visualização (Supervisor):</strong> Seu perfil possui acesso gerencial de leitura. Apenas o perfil <strong>Desenvolvedor</strong> tem permissão para cadastrar, editar ou excluir usuários.
+          </span>
+        </div>
+      )}
 
       {/* Users Table */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
@@ -118,7 +143,6 @@ export const UserManagement: React.FC = () => {
                 <th className="py-3 px-4">Código / Usuário</th>
                 <th className="py-3 px-4">Perfil / Função</th>
                 <th className="py-3 px-4">E-mail de Login</th>
-                <th className="py-3 px-4">Cavalo / Sider Padrão</th>
                 <th className="py-3 px-4 text-center">Meta (km/l)</th>
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Ações</th>
@@ -133,39 +157,25 @@ export const UserManagement: React.FC = () => {
                   </td>
 
                   <td className="py-3.5 px-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
-                        usr.role === 'admin'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
-                    >
-                      {usr.role === 'admin' ? (
-                        <>
-                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                          <span>Supervisor</span>
-                        </>
-                      ) : (
-                        <>
-                          <UserCheck className="h-3 w-3 text-amber-600" />
-                          <span>Motorista</span>
-                        </>
-                      )}
-                    </span>
+                    {usr.role === 'developer' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <Code className="h-3 w-3 text-indigo-600" />
+                        <span>Desenvolvedor</span>
+                      </span>
+                    ) : usr.role === 'supervisor' || usr.role === 'admin' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                        <span>Supervisor</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                        <UserCheck className="h-3 w-3 text-amber-600" />
+                        <span>Motorista</span>
+                      </span>
+                    )}
                   </td>
 
                   <td className="py-3.5 px-4 font-mono text-slate-600">{usr.email}</td>
-
-                  <td className="py-3.5 px-4 font-mono text-slate-600">
-                    {usr.cavaloPadrao ? (
-                      <span>
-                        Cavalo: <strong className="text-slate-800">{usr.cavaloPadrao}</strong> | Sider:{' '}
-                        <strong className="text-slate-800">{usr.siderPadrao || 'N/A'}</strong>
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 italic">—</span>
-                    )}
-                  </td>
 
                   <td className="py-3.5 px-4 text-center font-bold text-emerald-600">
                     {usr.targetKml ? `${usr.targetKml.toFixed(2)} km/l` : '—'}
@@ -182,29 +192,33 @@ export const UserManagement: React.FC = () => {
                   </td>
 
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => openEditUserModal(usr)}
-                        className="p-1.5 rounded-lg bg-slate-100 text-amber-600 hover:bg-amber-50 transition-colors"
-                        title="Editar Usuário & Alterar Senha"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-
-                      {currentUser?.id !== usr.id && (
+                    {canManageUsers ? (
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => {
-                            if (confirm(`Deseja realmente remover o usuário ${usr.name}?`)) {
-                              deleteUser(usr.id);
-                            }
-                          }}
-                          className="p-1.5 rounded-lg bg-slate-100 text-rose-600 hover:bg-rose-50 transition-colors"
-                          title="Excluir Usuário"
+                          onClick={() => openEditUserModal(usr)}
+                          className="p-1.5 rounded-lg bg-slate-100 text-amber-600 hover:bg-amber-50 transition-colors"
+                          title="Editar Usuário & Alterar Senha"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Edit2 className="h-3.5 w-3.5" />
                         </button>
-                      )}
-                    </div>
+
+                        {currentUser?.id !== usr.id && (
+                          <button
+                            onClick={() => {
+                              if (confirm(`Deseja realmente remover o usuário ${usr.name}?`)) {
+                                deleteUser(usr.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg bg-slate-100 text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Excluir Usuário"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 italic font-normal">Somente leitura</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -214,7 +228,7 @@ export const UserManagement: React.FC = () => {
       </div>
 
       {/* User Edit / Create Modal */}
-      {isModalOpen && (
+      {isModalOpen && canManageUsers && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="relative max-w-lg w-full rounded-2xl bg-white p-6 text-slate-800 shadow-xl border border-slate-100">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -287,14 +301,15 @@ export const UserManagement: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Perfil de Acesso (RBAC) *</label>
+                  <label className="block text-slate-600 font-semibold mb-1">Perfil de Acesso *</label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value as UserRole)}
-                    className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
+                    className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors font-medium"
                   >
-                    <option value="driver">Motorista (Acesso restrito próprio)</option>
-                    <option value="admin">Gestor de Frota (Acesso total)</option>
+                    <option value="driver">Motorista</option>
+                    <option value="supervisor">Supervisor</option>
+                    <option value="developer">Desenvolvedor</option>
                   </select>
                 </div>
 

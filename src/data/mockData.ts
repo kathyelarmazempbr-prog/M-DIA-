@@ -75,10 +75,10 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-admin',
     code: 'ADM-001',
-    name: 'Fernando Rocha (Gestor)',
+    name: 'Fernando Rocha (Desenvolvedor)',
     email: 'admin@mediaplus.com.br',
     password: 'admin',
-    role: 'admin',
+    role: 'developer',
     phone: '(81) 97102-5500',
     active: true,
   },
