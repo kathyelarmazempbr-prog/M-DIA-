@@ -60,6 +60,11 @@ export const UserManagement: React.FC = () => {
     e.preventDefault();
     if (!canManageUsers) return;
 
+    const isDriverRole = role === 'driver';
+    const parsedTargetKml = isDriverRole ? parseFloat(targetKml) || 2.60 : undefined;
+    const cavaloVal = isDriverRole ? cavaloPadrao : undefined;
+    const siderVal = isDriverRole ? siderPadrao : undefined;
+
     if (editingUser) {
       updateUser({
         ...editingUser,
@@ -68,9 +73,9 @@ export const UserManagement: React.FC = () => {
         email,
         password,
         role,
-        cavaloPadrao,
-        siderPadrao,
-        targetKml: parseFloat(targetKml) || 2.60,
+        cavaloPadrao: cavaloVal,
+        siderPadrao: siderVal,
+        targetKml: parsedTargetKml,
         phone,
         active,
       });
@@ -81,9 +86,9 @@ export const UserManagement: React.FC = () => {
         email,
         password,
         role,
-        cavaloPadrao,
-        siderPadrao,
-        targetKml: parseFloat(targetKml) || 2.80,
+        cavaloPadrao: cavaloVal,
+        siderPadrao: siderVal,
+        targetKml: parsedTargetKml,
         phone,
         active,
       });
@@ -178,7 +183,7 @@ export const UserManagement: React.FC = () => {
                   <td className="py-3.5 px-4 font-mono text-slate-600">{usr.email}</td>
 
                   <td className="py-3.5 px-4 text-center font-bold text-emerald-600">
-                    {usr.targetKml ? `${usr.targetKml.toFixed(2)} km/l` : '—'}
+                    {usr.role === 'driver' && usr.targetKml ? `${usr.targetKml.toFixed(2)} km/l` : '—'}
                   </td>
 
                   <td className="py-3.5 px-4 text-center whitespace-nowrap">
