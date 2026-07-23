@@ -1,0 +1,6 @@
+{
+  "name": "MÉDIA+",
+  "description": "Controle de consumo de combustível para motoristas e painel gerencial de frotas",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
