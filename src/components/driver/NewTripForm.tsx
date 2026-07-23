@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { KmlBadge } from '../common/KmlBadge';
+import { CameraModal } from '../common/CameraModal';
 import { Send, Camera, Upload, CheckCircle, Fuel, Truck, Calendar, FileText, UserCheck } from 'lucide-react';
 import { uploadComprovante } from '../../lib/firebaseService';
 
@@ -52,6 +53,7 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
   const [notes, setNotes] = useState('');
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   if (!currentUser) return null;
 
@@ -346,10 +348,21 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
               <span>Anexo do Comprovante / Foto do Painel</span>
             </label>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <label className="w-full sm:w-auto flex-1 cursor-pointer flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-4 hover:border-emerald-500 hover:bg-white transition-all text-xs font-semibold text-slate-600">
-                <Upload className="h-5 w-5 text-emerald-600" />
-                <span>{proofImage ? 'Substituir Imagem do Comprovante' : 'Tirar Foto ou Carregar Arquivo'}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Botão 1: Tirar foto pela Câmera (Inicia a câmera APENAS quando clicado) */}
+              <button
+                type="button"
+                onClick={() => setIsCameraOpen(true)}
+                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100/80 p-3.5 text-xs font-bold text-emerald-800 transition-all cursor-pointer shadow-xs"
+              >
+                <Camera className="h-4 w-4 text-emerald-600" />
+                <span>Tirar Foto com a Câmera</span>
+              </button>
+
+              {/* Botão 2: Selecionar arquivo / galeria */}
+              <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 p-3.5 text-xs font-bold text-slate-700 transition-all shadow-xs">
+                <Upload className="h-4 w-4 text-slate-500" />
+                <span>{uploading ? 'Carregando Arquivo...' : 'Anexar da Galeria'}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -357,16 +370,38 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
                   className="hidden"
                 />
               </label>
-
-              {proofImage && (
-                <div className="relative h-16 w-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
-                  <img src={proofImage} alt="Preview" className="h-full w-full object-cover" />
-                  <span className="absolute bottom-1 right-1 rounded-full bg-emerald-600 p-0.5 text-white">
-                    <CheckCircle className="h-3 w-3" />
-                  </span>
-                </div>
-              )}
             </div>
+
+            {proofImage && (
+              <div className="mt-2 flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="relative h-14 w-16 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
+                  <img src={proofImage} alt="Comprovante Anexado" className="h-full w-full object-cover" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    <span>Comprovante Anexado</span>
+                  </span>
+                  <p className="text-[11px] text-slate-500 truncate">Imagem pronta para envio junto à média</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProofImage(null)}
+                  className="text-xs font-semibold text-rose-600 hover:underline px-2 py-1"
+                >
+                  Remover
+                </button>
+              </div>
+            )}
+
+            {/* Modal de captura de foto da câmera */}
+            <CameraModal
+              isOpen={isCameraOpen}
+              onClose={() => setIsCameraOpen(false)}
+              onCapture={(capturedDataUrl) => {
+                setProofImage(capturedDataUrl);
+              }}
+            />
           </div>
 
           {/* Section 5: Observações */}
