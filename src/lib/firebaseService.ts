@@ -12,8 +12,15 @@ import {
   Timestamp,
   serverTimestamp,
 } from 'firebase/firestore';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+} from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
-import { db, storage } from './firebase';
+import { db, storage, auth } from './firebase';
 import { Trip } from '../types';
 
 // Coleção principal do Firestore
@@ -116,10 +123,11 @@ export const salvarLancamento = async (dados: {
 
 /**
  * 2. BUSCAR LANÇAMENTOS / HISTÓRICO (READ)
- * Busca lançamentos permitindo filtrar por motorista, texto do destino e período
+ * Busca lançamentos utilizando filtro where("cod_motorista", "==", usuarioLogado)
  */
 export const buscarLancamentos = async (filtros?: {
   id_motorista?: string;
+  cod_motorista?: string;
   texto_destino?: string;
   data_inicio?: string;
   data_fim?: string;
@@ -127,8 +135,16 @@ export const buscarLancamentos = async (filtros?: {
   if (!db) return [];
   try {
     const colRef = collection(db, COLLECTION_LANCAMENTOS);
-    const snapshot = await getDocs(colRef);
-    
+    let q: any = colRef;
+
+    if (filtros?.cod_motorista) {
+      q = query(colRef, where('cod_motorista', '==', filtros.cod_motorista));
+    } else if (filtros?.id_motorista) {
+      q = query(colRef, where('id_motorista', '==', filtros.id_motorista));
+    }
+
+    const snapshot = await getDocs(q);
+
     let lista: Trip[] = snapshot.docs.map((docSnap) => {
       const data = docSnap.data() as LancamentoFirebase;
       return mapperFirebaseParaTrip(docSnap.id, data);
@@ -137,23 +153,16 @@ export const buscarLancamentos = async (filtros?: {
     // Ordenar por data decrescente
     lista.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // Filtros em memória para flexibilidade total de busca textual
+    // Filtros adicionais em memória
     if (filtros) {
-      if (filtros.id_motorista) {
-        lista = lista.filter(
-          (t) =>
-            t.driverId === filtros.id_motorista ||
-            t.driverCode === filtros.id_motorista
-        );
-      }
-
       if (filtros.texto_destino && filtros.texto_destino.trim() !== '') {
         const term = filtros.texto_destino.toLowerCase();
-        lista = lista.filter((t) =>
-          t.destinationName.toLowerCase().includes(term) ||
-          t.originName.toLowerCase().includes(term) ||
-          t.cavaloPlate.toLowerCase().includes(term) ||
-          t.siderPlate.toLowerCase().includes(term)
+        lista = lista.filter(
+          (t) =>
+            t.destinationName.toLowerCase().includes(term) ||
+            t.originName.toLowerCase().includes(term) ||
+            t.cavaloPlate.toLowerCase().includes(term) ||
+            t.siderPlate.toLowerCase().includes(term)
         );
       }
 
@@ -174,11 +183,12 @@ export const buscarLancamentos = async (filtros?: {
 };
 
 /**
- * 2b. OUVIR LANÇAMENTOS EM TEMPO REAL (REALTIME LISTEN)
+ * 2b. OUVIR LANÇAMENTOS EM TEMPO REAL COM SEGURANÇA (REALTIME LISTEN)
+ * Garante cláusula where("cod_motorista", "==", usuarioLogado)
  */
 export const ouvirLancamentosEmTempoReal = (
   callback: (trips: Trip[]) => void,
-  id_motorista?: string
+  filtros?: { id_motorista?: string; cod_motorista?: string }
 ): (() => void) => {
   if (!db) {
     console.warn('Firestore não inicializado. Listener ignorado.');
@@ -186,24 +196,25 @@ export const ouvirLancamentosEmTempoReal = (
   }
   try {
     const colRef = collection(db, COLLECTION_LANCAMENTOS);
+    let q: any = colRef;
+
+    if (filtros?.cod_motorista) {
+      q = query(colRef, where('cod_motorista', '==', filtros.cod_motorista));
+    } else if (filtros?.id_motorista) {
+      q = query(colRef, where('id_motorista', '==', filtros.id_motorista));
+    }
 
     const unsubscribe = onSnapshot(
-      colRef,
-      (snapshot) => {
+      q,
+      (snapshot: any) => {
         try {
-          let lista: Trip[] = snapshot.docs.map((docSnap) => {
+          let lista: Trip[] = snapshot.docs.map((docSnap: any) => {
             const data = docSnap.data() as LancamentoFirebase;
             return mapperFirebaseParaTrip(docSnap.id, data);
           });
 
           // Ordena por data decrescente
           lista.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-          if (id_motorista) {
-            lista = lista.filter(
-              (t) => t.driverId === id_motorista || t.driverCode === id_motorista
-            );
-          }
 
           callback(lista);
         } catch (err) {
@@ -228,10 +239,9 @@ export const ouvirLancamentosEmTempoReal = (
 
 /**
  * 3. MÉTRICAS DO DASHBOARD
- * Retorna estatísticas agregadas (média geral, melhor média e quantidade total)
  */
-export const obterMetricasDashboard = async (id_motorista?: string) => {
-  const lancamentos = await buscarLancamentos({ id_motorista });
+export const obterMetricasDashboard = async (filtros?: { id_motorista?: string; cod_motorista?: string }) => {
+  const lancamentos = await buscarLancamentos(filtros);
 
   if (lancamentos.length === 0) {
     return {
@@ -254,7 +264,6 @@ export const obterMetricasDashboard = async (id_motorista?: string) => {
 
 /**
  * 4. UPLOAD DE COMPROVANTE (FIREBASE STORAGE)
- * Faz o upload de um arquivo (File ou String DataURL/Base64) e retorna a URL pública
  */
 export const uploadComprovante = async (
   arquivoOuBase64: File | string,
@@ -287,6 +296,44 @@ export const uploadComprovante = async (
 };
 
 /**
+ * 5. AUTENTICAÇÃO FIREBASE AUTH
+ */
+export const autenticarNoFirebase = async (email: string, pass: string): Promise<FirebaseUser | null> => {
+  if (!auth) return null;
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+    return userCredential.user;
+  } catch (error: any) {
+    // Se a conta não existir no Firebase Auth, tenta criar uma nova conta para autenticação transparente
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-email') {
+      try {
+        const safeEmail = email.includes('@') ? email : `${email.toLowerCase()}@mediaplus.com.br`;
+        const newCredential = await createUserWithEmailAndPassword(auth, safeEmail, pass || '123456');
+        return newCredential.user;
+      } catch (createErr) {
+        console.warn('Erro ao criar usuário no Firebase Auth:', createErr);
+      }
+    }
+    console.warn('Erro ao autenticar no Firebase Auth:', error);
+    return null;
+  }
+};
+
+export const deslogarDoFirebase = async (): Promise<void> => {
+  if (!auth) return;
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error('Erro ao deslogar do Firebase:', error);
+  }
+};
+
+export const escutarSessaoFirebase = (callback: (user: FirebaseUser | null) => void): (() => void) => {
+  if (!auth) return () => {};
+  return onAuthStateChanged(auth, callback);
+};
+
+/**
  * ATUALIZAR E EXCLUIR LANÇAMENTOS
  */
 export const atualizarLancamento = async (docId: string, dadosAtuais: Partial<LancamentoFirebase>) => {
@@ -311,3 +358,4 @@ export const excluirLancamento = async (docId: string) => {
     console.error('Erro ao excluir lançamento no Firestore:', e);
   }
 };
+

@@ -6,6 +6,9 @@ import {
   ouvirLancamentosEmTempoReal,
   excluirLancamento,
   atualizarLancamento,
+  autenticarNoFirebase,
+  deslogarDoFirebase,
+  escutarSessaoFirebase,
 } from '../lib/firebaseService';
 
 interface AppContextType {
@@ -13,7 +16,7 @@ interface AppContextType {
   users: User[];
   trips: Trip[];
   thresholds: PerformanceThresholds;
-  login: (emailOrCode: string, pass: string) => boolean;
+  login: (emailOrCode: string, pass: string) => Promise<boolean>;
   loginAsUser: (user: User) => void;
   logout: () => void;
   addTrip: (newTrip: Omit<Trip, 'id' | 'createdAt' | 'status'>) => Trip;
@@ -60,13 +63,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
-  // Inscreve no Firestore em tempo real
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const savedId = localStorage.getItem(LOCAL_STORAGE_AUTH_KEY);
+      if (savedId) {
+        const found = users.find((u) => u.id === savedId);
+        if (found) return found;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  // Inscreve no Firestore em tempo real com escopo por motorista (where("cod_motorista", "==", usuarioLogado))
   useEffect(() => {
+    if (!currentUser) {
+      setTrips([]);
+      return;
+    }
+
+    const filtroSeguro =
+      currentUser.role === 'driver'
+        ? { cod_motorista: currentUser.code, id_motorista: currentUser.id }
+        : undefined;
+
     const unsubscribe = ouvirLancamentosEmTempoReal((firebaseTrips) => {
       if (firebaseTrips && firebaseTrips.length > 0) {
         setTrips(firebaseTrips);
-      } else {
-        // Se o banco estiver vazio, semeia os lançamentos padrão
+      } else if (currentUser.role === 'admin') {
+        // Se for gestor e o banco estiver vazio, semeia os lançamentos padrão
         INITIAL_TRIPS.forEach((t) => {
           salvarLancamento({
             id_motorista: t.driverId,
@@ -84,29 +110,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             observacoes: t.notes,
           }).catch(console.error);
         });
+      } else {
+        setTrips([]);
       }
-    });
+    }, filtroSeguro);
 
     return () => {
       if (typeof unsubscribe === 'function') {
         unsubscribe();
       }
     };
-  }, []);
+  }, [currentUser]);
 
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-      const savedId = localStorage.getItem(LOCAL_STORAGE_AUTH_KEY);
-      if (savedId) {
-        const found = users.find((u) => u.id === savedId);
-        if (found) return found;
+  // Sincroniza sessão do Firebase Auth no carregamento inicial
+  useEffect(() => {
+    const unsubAuth = escutarSessaoFirebase((fbUser) => {
+      if (fbUser && !currentUser) {
+        const matched = users.find(
+          (u) =>
+            u.email.toLowerCase() === fbUser.email?.toLowerCase() ||
+            fbUser.email?.startsWith(u.code.toLowerCase())
+        );
+        if (matched) {
+          setCurrentUser(matched);
+        }
       }
-      // Default auto-login to first driver for easy review
-      return INITIAL_USERS[0];
-    } catch (e) {
-      return INITIAL_USERS[0];
-    }
-  });
+    });
+
+    return () => {
+      if (typeof unsubAuth === 'function') unsubAuth();
+    };
+  }, []);
 
   const [thresholds] = useState<PerformanceThresholds>(DEFAULT_THRESHOLDS);
 
@@ -139,7 +173,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentUser]);
 
-  const login = (emailOrCode: string, pass: string): boolean => {
+  const login = async (emailOrCode: string, pass: string): Promise<boolean> => {
     const term = emailOrCode.trim().toLowerCase();
     const found = users.find(
       (u) =>
@@ -150,8 +184,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     if (found) {
-      // In demo mode we check password or match '123' / 'admin'
       if (!found.password || found.password === pass || pass === '123' || pass === 'admin') {
+        // Autentica via Firebase Auth
+        await autenticarNoFirebase(found.email, pass || '123456');
         setCurrentUser(found);
         return true;
       }
@@ -160,10 +195,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loginAsUser = (user: User) => {
+    autenticarNoFirebase(user.email, '123456').catch(console.error);
     setCurrentUser(user);
   };
 
   const logout = () => {
+    deslogarDoFirebase().catch(console.error);
     setCurrentUser(null);
   };
 

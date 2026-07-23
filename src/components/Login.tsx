@@ -7,13 +7,21 @@ export const Login: React.FC = () => {
   const [identifier, setIdentifier] = useState('9013');
   const [password, setPassword] = useState('123');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = login(identifier, password);
-    if (!success) {
-      setError('Usuário ou senha incorretos. Informe seu e-mail ou código (ex: 9013) com senha "123" ou utilize os atalhos abaixo.');
+    setLoading(true);
+    try {
+      const success = await login(identifier, password);
+      if (!success) {
+        setError('Usuário ou senha incorretos. Informe seu e-mail ou código (ex: 9013) com senha "123" ou utilize os atalhos abaixo.');
+      }
+    } catch (err) {
+      setError('Erro ao realizar login no Firebase Auth.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -89,10 +97,11 @@ export const Login: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full mt-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3.5 px-4 text-sm font-bold text-white transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2"
+              disabled={loading}
+              className="w-full mt-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3.5 px-4 text-sm font-bold text-white transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <LogIn className="h-4 w-4 stroke-[2.5]" />
-              <span>Entrar no Sistema</span>
+              <span>{loading ? 'Autenticando...' : 'Entrar no Sistema'}</span>
             </button>
           </form>
 
