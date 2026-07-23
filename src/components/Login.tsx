@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Truck, Lock, User as UserIcon, LogIn, Shield, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Truck, Lock, User as UserIcon, LogIn } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { login, users, loginAsUser } = useApp();
-  const [identifier, setIdentifier] = useState('9013');
-  const [password, setPassword] = useState('123');
+  const { login } = useApp();
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -16,7 +16,7 @@ export const Login: React.FC = () => {
     try {
       const success = await login(identifier, password);
       if (!success) {
-        setError('Usuário ou senha incorretos. Informe seu e-mail ou código (ex: 9013) com senha "123" ou utilize os atalhos abaixo.');
+        setError('Usuário ou senha incorretos. Informe seu e-mail ou código de motorista.');
       }
     } catch (err) {
       setError('Erro ao realizar login no Firebase Auth.');
@@ -24,9 +24,6 @@ export const Login: React.FC = () => {
       setLoading(false);
     }
   };
-
-  const drivers = users.filter((u) => u.role === 'driver');
-  const admins = users.filter((u) => u.role === 'admin');
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-center items-center px-4 py-8 relative overflow-hidden">
@@ -48,7 +45,7 @@ export const Login: React.FC = () => {
         {/* Login Card */}
         <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-slate-100">
           <h2 className="text-xl font-bold text-slate-900 mb-1">Acessar o Sistema</h2>
-          <p className="text-xs text-slate-500 mb-6">Informe seu login ou código de motorista para entrar.</p>
+          <p className="text-xs text-slate-500 mb-6">Informe seu e-mail ou código de motorista e senha para entrar.</p>
 
           {error && (
             <div className="mb-5 rounded-xl bg-rose-50 p-3.5 text-xs text-rose-700 border border-rose-200 leading-relaxed">
@@ -69,7 +66,7 @@ export const Login: React.FC = () => {
                   type="text"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="Ex: 9013 ou aluisio.almeida@mediaplus.com.br"
+                  placeholder="Ex: 9013 ou seu.email@empresa.com.br"
                   required
                   className="w-full rounded-xl bg-slate-50 border border-slate-200 pl-10 pr-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none transition-all"
                 />
@@ -104,58 +101,6 @@ export const Login: React.FC = () => {
               <span>{loading ? 'Autenticando...' : 'Entrar no Sistema'}</span>
             </button>
           </form>
-
-          {/* Quick Demo Accounts Selection */}
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center justify-between">
-              <span>Atalhos Rápidos de Acesso (Demo)</span>
-              <span className="text-[10px] text-emerald-600 font-normal">Toque para entrar</span>
-            </p>
-
-            {/* Admin shortcut */}
-            <div className="mb-3">
-              <p className="text-[11px] text-slate-500 font-medium mb-1.5">Módulo Gerencial (Admin / Gestor):</p>
-              {admins.map((adm) => (
-                <button
-                  key={adm.id}
-                  onClick={() => loginAsUser(adm)}
-                  className="w-full flex items-center justify-between rounded-xl bg-slate-50 hover:bg-emerald-50 p-2.5 text-xs text-slate-800 border border-slate-200 hover:border-emerald-200 transition-all text-left mb-1.5 group"
-                >
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-emerald-600" />
-                    <div>
-                      <span className="font-semibold text-slate-900">{adm.name}</span>
-                      <span className="block text-[10px] text-slate-500">Gestor de Frota</span>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
-                </button>
-              ))}
-            </div>
-
-            {/* Drivers shortcut list */}
-            <div>
-              <p className="text-[11px] text-slate-500 font-medium mb-1.5">Motoristas Cadastrados (Mobile):</p>
-              <div className="grid grid-cols-1 gap-1.5">
-                {drivers.map((drv) => (
-                  <button
-                    key={drv.id}
-                    onClick={() => loginAsUser(drv)}
-                    className="flex items-center justify-between rounded-xl bg-slate-50 hover:bg-slate-100 p-2 text-xs text-slate-700 border border-slate-200 transition-all text-left group"
-                  >
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-amber-600" />
-                      <span className="font-medium text-slate-800">{drv.name}</span>
-                      <span className="text-[10px] text-slate-400">({drv.code})</span>
-                    </div>
-                    <span className="text-[10px] text-emerald-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                      Entrar →
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Footer info */}
