@@ -1,9 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MÉDIA +</title>
+    <!-- Script de Diagnóstico para Captura de Erros e Prevenção de Tela Branca -->
+    <script>
+      window.addEventListener('error', function (e) {
+        var root = document.getElementById('root');
+        if (root && (!root.innerHTML || root.innerHTML.trim() === '')) {
+          root.innerHTML = '<div style="padding:24px;font-family:sans-serif;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;margin:20px;border-radius:16px;max-width:600px;margin:40px auto;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);">' +
+            '<h3 style="margin-top:0;font-size:18px;font-weight:700;">⚠️ Erro no Carregamento da Aplicação</h3>' +
+            '<p style="font-size:14px;color:#374151;line-height:1.5;">Os navegadores não conseguem executar arquivos <code>.tsx</code> brutos diretamente sem compilação. Se esta mensagem aparecer no GitHub Pages, certifique-se de ativar o <b>GitHub Actions</b> ou publicar o conteúdo da pasta <code>dist</code>.</p>' +
+            '<pre style="background:#ffffff;padding:12px;border-radius:8px;overflow:auto;font-size:12px;color:#b91c1c;border:1px solid #fee2e2;">' + (e.message || e) + '</pre>' +
+            '</div>';
+        }
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
