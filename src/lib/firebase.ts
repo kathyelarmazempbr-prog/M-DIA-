@@ -4,17 +4,28 @@ import { getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Inicializa o Firebase (Singleton)
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+let app: any = null;
+let dbInstance: any = null;
+let storageInstance: any = null;
+let authInstance: any = null;
 
-// Obtém o Firestore considerando o ID de banco configurado
-export const db =
-  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-    : getFirestore(app);
+try {
+  if (firebaseConfig && (firebaseConfig as any).apiKey) {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    dbInstance =
+      firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+        ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+        : getFirestore(app);
+    storageInstance = getStorage(app);
+    authInstance = getAuth(app);
+  }
+} catch (err) {
+  console.warn("Erro ao conectar ao Firebase (modo offline ativado):", err);
+}
 
-// Serviços do Firebase
-export const storage = getStorage(app);
-export const auth = getAuth(app);
+export const db = dbInstance;
+export const storage = storageInstance;
+export const auth = authInstance;
 
 export default app;
+

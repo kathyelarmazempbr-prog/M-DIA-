@@ -82,6 +82,10 @@ export const salvarLancamento = async (dados: {
   url_comprovante?: string;
   observacoes?: string;
 }): Promise<string> => {
+  if (!db) {
+    console.warn('Firestore não inicializado (modo local).');
+    return 'local-' + Date.now();
+  }
   try {
     const docData: Omit<LancamentoFirebase, 'id'> = {
       id_motorista: dados.id_motorista,
@@ -106,7 +110,7 @@ export const salvarLancamento = async (dados: {
     return docRef.id;
   } catch (error) {
     console.error('Erro ao salvar lançamento no Firestore:', error);
-    throw error;
+    return 'local-' + Date.now();
   }
 };
 
@@ -120,6 +124,7 @@ export const buscarLancamentos = async (filtros?: {
   data_inicio?: string;
   data_fim?: string;
 }): Promise<Trip[]> => {
+  if (!db) return [];
   try {
     const colRef = collection(db, COLLECTION_LANCAMENTOS);
     const snapshot = await getDocs(colRef);
@@ -174,32 +179,51 @@ export const buscarLancamentos = async (filtros?: {
 export const ouvirLancamentosEmTempoReal = (
   callback: (trips: Trip[]) => void,
   id_motorista?: string
-) => {
-  const colRef = collection(db, COLLECTION_LANCAMENTOS);
+): (() => void) => {
+  if (!db) {
+    console.warn('Firestore não inicializado. Listener ignorado.');
+    return () => {};
+  }
+  try {
+    const colRef = collection(db, COLLECTION_LANCAMENTOS);
 
-  return onSnapshot(
-    colRef,
-    (snapshot) => {
-      let lista: Trip[] = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data() as LancamentoFirebase;
-        return mapperFirebaseParaTrip(docSnap.id, data);
-      });
+    const unsubscribe = onSnapshot(
+      colRef,
+      (snapshot) => {
+        try {
+          let lista: Trip[] = snapshot.docs.map((docSnap) => {
+            const data = docSnap.data() as LancamentoFirebase;
+            return mapperFirebaseParaTrip(docSnap.id, data);
+          });
 
-      // Ordena por data decrescente
-      lista.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          // Ordena por data decrescente
+          lista.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-      if (id_motorista) {
-        lista = lista.filter(
-          (t) => t.driverId === id_motorista || t.driverCode === id_motorista
-        );
+          if (id_motorista) {
+            lista = lista.filter(
+              (t) => t.driverId === id_motorista || t.driverCode === id_motorista
+            );
+          }
+
+          callback(lista);
+        } catch (err) {
+          console.error('Erro ao mapear documentos do Firestore:', err);
+        }
+      },
+      (error) => {
+        console.error('Erro no listener em tempo real do Firestore:', error);
       }
+    );
 
-      callback(lista);
-    },
-    (error) => {
-      console.error('Erro no listener em tempo real do Firestore:', error);
-    }
-  );
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  } catch (err) {
+    console.error('Erro ao registrar listener em tempo real:', err);
+    return () => {};
+  }
 };
 
 /**
@@ -236,16 +260,19 @@ export const uploadComprovante = async (
   arquivoOuBase64: File | string,
   nomeArquivo?: string
 ): Promise<string> => {
+  if (!storage) {
+    console.warn('Storage não inicializado, usando dados locais.');
+    if (typeof arquivoOuBase64 === 'string') return arquivoOuBase64;
+    return '';
+  }
   try {
     const timestamp = Date.now();
     const filename = nomeArquivo || `comprovante_${timestamp}.jpg`;
     const storageRef = ref(storage, `comprovantes/${filename}`);
 
     if (typeof arquivoOuBase64 === 'string') {
-      // Se for string base64 / data URL
       await uploadString(storageRef, arquivoOuBase64, 'data_url');
     } else {
-      // Se for objeto File do input
       await uploadBytes(storageRef, arquivoOuBase64);
     }
 
@@ -254,7 +281,8 @@ export const uploadComprovante = async (
     return downloadURL;
   } catch (error) {
     console.error('Erro ao fazer upload do comprovante no Storage:', error);
-    throw error;
+    if (typeof arquivoOuBase64 === 'string') return arquivoOuBase64;
+    return '';
   }
 };
 
@@ -262,14 +290,24 @@ export const uploadComprovante = async (
  * ATUALIZAR E EXCLUIR LANÇAMENTOS
  */
 export const atualizarLancamento = async (docId: string, dadosAtuais: Partial<LancamentoFirebase>) => {
-  const docRef = doc(db, COLLECTION_LANCAMENTOS, docId);
-  await updateDoc(docRef, {
-    ...dadosAtuais,
-    atualizado_em: serverTimestamp(),
-  });
+  if (!db || !docId) return;
+  try {
+    const docRef = doc(db, COLLECTION_LANCAMENTOS, docId);
+    await updateDoc(docRef, {
+      ...dadosAtuais,
+      atualizado_em: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error('Erro ao atualizar lançamento no Firestore:', e);
+  }
 };
 
 export const excluirLancamento = async (docId: string) => {
-  const docRef = doc(db, COLLECTION_LANCAMENTOS, docId);
-  await deleteDoc(docRef);
+  if (!db || !docId) return;
+  try {
+    const docRef = doc(db, COLLECTION_LANCAMENTOS, docId);
+    await deleteDoc(docRef);
+  } catch (e) {
+    console.error('Erro ao excluir lançamento no Firestore:', e);
+  }
 };
