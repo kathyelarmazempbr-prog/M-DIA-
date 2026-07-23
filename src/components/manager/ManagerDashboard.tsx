@@ -27,7 +27,7 @@ export const ManagerDashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black text-white">{currentUser.name}</h1>
                 <span className="rounded-full bg-emerald-950/80 px-2.5 py-0.5 text-xs font-bold text-emerald-400 border border-emerald-800/60">
-                  GESTOR DE FROTA
+                  SUPERVISOR
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-1">

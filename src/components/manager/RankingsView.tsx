@@ -5,8 +5,8 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 import { Trophy, Award, Truck, User, Fuel, Shield, Medal } from 'lucide-react';
 
 export const RankingsView: React.FC = () => {
-  const { trips, users } = useApp();
-  const [rankingType, setRankingType] = useState<'driver' | 'cavalo' | 'sider'>('driver');
+  const { trips } = useApp();
+  const [rankingType, setRankingType] = useState<'driver' | 'carreta'>('driver');
 
   // 1. Driver Rankings
   const driverRankings = useMemo(() => {
@@ -46,8 +46,8 @@ export const RankingsView: React.FC = () => {
       .sort((a, b) => b.avgKml - a.avgKml);
   }, [trips]);
 
-  // 2. Cavalo Rankings
-  const cavaloRankings = useMemo(() => {
+  // 2. Carretas / Cavalos Rankings
+  const carretaRankings = useMemo(() => {
     const cavaloMap: {
       [plate: string]: {
         plate: string;
@@ -76,36 +76,6 @@ export const RankingsView: React.FC = () => {
       .sort((a, b) => b.avgKml - a.avgKml);
   }, [trips]);
 
-  // 3. Sider Rankings
-  const siderRankings = useMemo(() => {
-    const siderMap: {
-      [plate: string]: {
-        plate: string;
-        tripsCount: number;
-        totalKml: number;
-        bestKml: number;
-      };
-    } = {};
-
-    trips.forEach((t) => {
-      const plate = t.siderPlate.toUpperCase();
-      if (!siderMap[plate]) {
-        siderMap[plate] = { plate, tripsCount: 0, totalKml: 0, bestKml: 0 };
-      }
-      const item = siderMap[plate];
-      item.tripsCount += 1;
-      item.totalKml += t.kml;
-      if (t.kml > item.bestKml) item.bestKml = t.kml;
-    });
-
-    return Object.values(siderMap)
-      .map((item) => ({
-        ...item,
-        avgKml: item.tripsCount > 0 ? item.totalKml / item.tripsCount : 0,
-      }))
-      .sort((a, b) => b.avgKml - a.avgKml);
-  }, [trips]);
-
   // Chart Data preparation
   const chartData = useMemo(() => {
     if (rankingType === 'driver') {
@@ -114,20 +84,14 @@ export const RankingsView: React.FC = () => {
         fullName: d.driverName,
         avgKml: parseFloat(d.avgKml.toFixed(2)),
       }));
-    } else if (rankingType === 'cavalo') {
-      return cavaloRankings.slice(0, 8).map((c) => ({
+    } else {
+      return carretaRankings.slice(0, 8).map((c) => ({
         name: c.plate,
-        fullName: `Cavalo ${c.plate}`,
+        fullName: `Carreta ${c.plate}`,
         avgKml: parseFloat(c.avgKml.toFixed(2)),
       }));
-    } else {
-      return siderRankings.slice(0, 8).map((s) => ({
-        name: s.plate,
-        fullName: `Sider ${s.plate}`,
-        avgKml: parseFloat(s.avgKml.toFixed(2)),
-      }));
     }
-  }, [rankingType, driverRankings, cavaloRankings, siderRankings]);
+  }, [rankingType, driverRankings, carretaRankings]);
 
   // Podium 1st, 2nd, 3rd drivers
   const top1 = driverRankings[0];
@@ -142,7 +106,7 @@ export const RankingsView: React.FC = () => {
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 mb-2 border border-amber-200/80 shadow-xs">
             <Trophy className="h-6 w-6" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Rankings de Eficiência de Frota</h2>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">RANKING DE EFICIÊNCIA DO TIME</h2>
           <p className="text-xs text-slate-500 mt-1">
             Classificação baseada na média acumulada (km/l) por Motorista e Equipamento
           </p>
@@ -202,41 +166,29 @@ export const RankingsView: React.FC = () => {
 
       {/* Tabs Selector for Ranking Type */}
       <div className="flex justify-center">
-        <div className="inline-flex rounded-xl bg-slate-200/60 p-1 border border-slate-200/80 max-w-lg w-full">
+        <div className="inline-flex rounded-xl bg-slate-200/60 p-1 border border-slate-200/80 max-w-sm w-full">
           <button
             onClick={() => setRankingType('driver')}
-            className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2.5 px-3 text-xs font-black tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase ${
               rankingType === 'driver'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <User className="h-4 w-4" />
-            <span>Motoristas</span>
+            <span>MOTORISTAS</span>
           </button>
 
           <button
-            onClick={() => setRankingType('cavalo')}
-            className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-              rankingType === 'cavalo'
+            onClick={() => setRankingType('carreta')}
+            className={`flex-1 py-2.5 px-3 text-xs font-black tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase ${
+              rankingType === 'carreta'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Truck className="h-4 w-4" />
-            <span>Cavalos</span>
-          </button>
-
-          <button
-            onClick={() => setRankingType('sider')}
-            className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-              rankingType === 'sider'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Truck className="h-4 w-4" />
-            <span>Siders</span>
+            <span>CARRETAS</span>
           </button>
         </div>
       </div>
@@ -246,7 +198,7 @@ export const RankingsView: React.FC = () => {
         <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
           <Fuel className="h-4 w-4 text-emerald-600" />
           <span>
-            Gráfico Comparativo - {rankingType === 'driver' ? 'Motoristas' : rankingType === 'cavalo' ? 'Cavalos' : 'Siders'}
+            Gráfico Comparativo - {rankingType === 'driver' ? 'MOTORISTAS' : 'CARRETAS'}
           </span>
         </h3>
 
@@ -330,48 +282,19 @@ export const RankingsView: React.FC = () => {
             </table>
           )}
 
-          {rankingType === 'cavalo' && (
+          {rankingType === 'carreta' && (
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-100">
                 <tr>
                   <th className="py-3 px-4">Posição</th>
-                  <th className="py-3 px-4">Placa Cavalo</th>
+                  <th className="py-3 px-4">Placa Carreta</th>
                   <th className="py-3 px-4 text-center">Total de Viagens</th>
                   <th className="py-3 px-4 text-center">Recorde Registrado</th>
                   <th className="py-3 px-4 text-right">Média Geral</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-                {cavaloRankings.map((item, idx) => (
-                  <tr key={item.plate} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-500">{idx + 1}º</td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{item.plate}</td>
-                    <td className="py-3.5 px-4 text-center">{item.tripsCount}</td>
-                    <td className="py-3.5 px-4 text-center text-amber-600 font-bold">
-                      {item.bestKml.toFixed(2)} km/l
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <KmlBadge kml={item.avgKml} size="md" showLabel />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {rankingType === 'sider' && (
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-100">
-                <tr>
-                  <th className="py-3 px-4">Posição</th>
-                  <th className="py-3 px-4">Placa Sider</th>
-                  <th className="py-3 px-4 text-center">Total de Viagens</th>
-                  <th className="py-3 px-4 text-center">Recorde Registrado</th>
-                  <th className="py-3 px-4 text-right">Média Geral</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-                {siderRankings.map((item, idx) => (
+                {carretaRankings.map((item, idx) => (
                   <tr key={item.plate} className="hover:bg-slate-50 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-slate-500">{idx + 1}º</td>
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{item.plate}</td>

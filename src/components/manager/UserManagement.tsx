@@ -143,7 +143,7 @@ export const UserManagement: React.FC = () => {
                       {usr.role === 'admin' ? (
                         <>
                           <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                          <span>Gestor de Frota</span>
+                          <span>Supervisor</span>
                         </>
                       ) : (
                         <>

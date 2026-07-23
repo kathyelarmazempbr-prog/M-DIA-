@@ -178,9 +178,9 @@ export const FleetOverview: React.FC = () => {
       <ImageModal imageUrl={selectedProofUrl} onClose={() => setSelectedProofUrl(null)} />
 
       {/* KPI Cards Header */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-100 space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Média Geral Frota</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Média Geral</span>
           <div className="flex items-baseline justify-between pt-1">
             <span className="text-3xl font-bold text-slate-900">{fleetKpis.avgKml.toFixed(2)}</span>
             <span className="text-xs text-slate-500 font-medium">km/l</span>
@@ -189,32 +189,21 @@ export const FleetOverview: React.FC = () => {
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-100 space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Viagens Filtradas</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">TOTAL DE REGISTROS</span>
           <div className="flex items-baseline justify-between pt-1">
             <span className="text-3xl font-bold text-emerald-600">{fleetKpis.totalTrips}</span>
-            <span className="text-xs text-slate-500 font-medium">puxadas</span>
+            <span className="text-xs text-slate-500 font-medium">registros</span>
           </div>
           <p className="text-[11px] text-slate-400">Total no período selecionado</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-100 space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Quilometragem Total</span>
-          <div className="flex items-baseline justify-between pt-1">
-            <span className="text-3xl font-bold text-slate-900">
-              {fleetKpis.totalDistKm.toLocaleString('pt-BR')}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">km</span>
-          </div>
-          <p className="text-[11px] text-slate-400">Distância percorrida na frota</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-100 space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Puxadas em Alerta</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Registro Crítico</span>
           <div className="flex items-baseline justify-between pt-1">
             <span className="text-3xl font-bold text-rose-500">{fleetKpis.lowCount}</span>
             <span className="text-xs text-slate-500 font-medium">abaixo de 2.40</span>
           </div>
-          <p className="text-[11px] text-rose-500/80 font-medium">Requerem atenção do gestor</p>
+          <p className="text-[11px] text-rose-500/80 font-medium">Requerem atenção do supervisor</p>
         </div>
       </div>
 

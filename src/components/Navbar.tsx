@@ -42,7 +42,7 @@ export const Navbar: React.FC = () => {
                 <div className="text-left">
                   <span className="block font-bold leading-tight text-slate-900">{currentUser.name}</span>
                   <span className="block text-[10px] text-slate-500 font-medium">
-                    {isManager ? 'Gestor de Frota' : `Cód. Motorista: ${currentUser.code}`}
+                    {isManager ? 'SUPERVISOR' : `Cód. Motorista: ${currentUser.code}`}
                   </span>
                 </div>
               </div>
