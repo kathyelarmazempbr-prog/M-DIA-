@@ -449,27 +449,25 @@ export const mapperFirebaseParaUser = (docId: string, data: any): User => {
  * Busca todos os usuários cadastrados diretamente na nuvem (Firestore)
  */
 export const buscarUsuariosFirestore = async (): Promise<User[]> => {
-  console.log('Tentando conectar ao banco de dados para buscar usuários...');
+  console.log('[FIREBASE CRUD] Buscando lista de usuários no Firestore...');
   if (!db) {
-    console.warn('Firestore não inicializado. Retornando lista vazia.');
+    console.warn('[FIREBASE WARNING] Firestore não inicializado. Retornando lista vazia.');
     return [];
   }
   try {
     const colRef = collection(db, COLLECTION_USUARIOS);
-    const fetchPromise = getDocs(colRef).then((snapshot) =>
-      snapshot.docs.map((d) => mapperFirebaseParaUser(d.id, d.data()))
-    );
-    const usuarios = await withTimeout(fetchPromise, 3000, []);
-    console.log(`Consulta ao banco concluída. ${usuarios.length} usuários encontrados.`);
+    const snapshot = await getDocs(colRef);
+    const usuarios = snapshot.docs.map((d) => mapperFirebaseParaUser(d.id, d.data()));
+    console.log(`[FIREBASE CRUD OK] Busca no Firestore concluída: ${usuarios.length} usuários encontrados.`);
     return usuarios;
   } catch (error) {
-    console.error('Erro ao buscar usuários do banco de dados:', error);
+    console.error('[FIREBASE CRUD ERRO] Erro ao buscar usuários no Firestore:', error);
     return [];
   }
 };
 
 /**
- * Ouve alterações na coleção de usuários em tempo real
+ * Ouve alterações na coleção de usuários em tempo real para sincronização multi-dispositivo
  */
 export const ouvirUsuariosEmTempoReal = (
   callback: (usuarios: User[]) => void
@@ -481,26 +479,27 @@ export const ouvirUsuariosEmTempoReal = (
       colRef,
       (snapshot) => {
         const usuarios: User[] = snapshot.docs.map((d) => mapperFirebaseParaUser(d.id, d.data()));
+        console.log(`[FIREBASE REALTIME] Recebido snapshot em tempo real com ${usuarios.length} usuários.`);
         callback(usuarios);
       },
       (error) => {
-        console.error('Erro no listener em tempo real de usuários:', error);
+        console.error('[FIREBASE REALTIME ERRO] Erro no listener em tempo real de usuários:', error);
       }
     );
     return unsubscribe;
   } catch (e) {
-    console.error('Erro ao registrar listener em tempo real de usuários:', e);
+    console.error('[FIREBASE REALTIME EXCEÇÃO] Erro ao registrar listener em tempo real:', e);
     return () => {};
   }
 };
 
 /**
- * Salva ou atualiza um usuário no Firestore
+ * Cadastra ou atualiza um usuário no Firestore
  */
 export const salvarUsuarioFirestore = async (user: User): Promise<void> => {
-  console.log('Tentando conectar ao banco de dados para salvar usuário:', user.name || user.code);
+  console.log('[FIREBASE CRUD] Salvando usuário no Firestore:', user.name || user.code);
   if (!db) {
-    console.warn('Firestore não inicializado. Usuário mantido no estado local.');
+    console.warn('[FIREBASE WARNING] Firestore não inicializado. Operação salva apenas localmente.');
     return;
   }
   try {
@@ -517,15 +516,15 @@ export const salvarUsuarioFirestore = async (user: User): Promise<void> => {
       active: user.active ?? true,
       cavaloPadrao: user.cavaloPadrao || '',
       siderPadrao: user.siderPadrao || '',
-      targetKml: user.targetKml !== undefined ? user.targetKml : null,
+      targetKml: user.targetKml !== undefined && user.targetKml !== null ? Number(user.targetKml) : null,
       atualizado_em: serverTimestamp(),
     };
 
-    const savePromise = setDoc(docRef, docData, { merge: true });
-    await withTimeout(savePromise, 3000, undefined);
-    console.log('Usuário salvo com sucesso no banco de dados na nuvem:', userDocId);
+    await setDoc(docRef, docData, { merge: true });
+    console.log('[FIREBASE CRUD OK] Usuário salvo com sucesso no Firestore:', userDocId);
   } catch (e) {
-    console.error('Erro ao salvar usuário no banco de dados:', e);
+    console.error('[FIREBASE CRUD ERRO] Erro ao salvar usuário no Firestore:', e);
+    throw e;
   }
 };
 
