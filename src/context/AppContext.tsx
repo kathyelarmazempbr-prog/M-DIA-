@@ -46,25 +46,20 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const mergeUserLists = (initial: User[], cloudUsers: User[]): User[] => {
-  const map = new Map<string, User>();
+  const isPedroBruno = (u: User) =>
+    (u.code || '').toLowerCase().trim() === 'g1000' ||
+    (u.name || '').toUpperCase().trim() === 'PEDRO BRUNO' ||
+    (u.email || '').toLowerCase().trim() === 'pedro.bruno@mediaplus.com.br';
 
-  // 1. Inserir usuários iniciais padrões
-  initial.forEach((u) => {
-    const key = u.id || (u.code ? u.code.toLowerCase().trim() : u.email.toLowerCase().trim());
-    map.set(key, u);
-  });
+  if (cloudUsers && cloudUsers.length > 0) {
+    const cleanCloudUsers = cloudUsers.filter((u) => !isPedroBruno(u));
 
-  // 2. Mesclar/sobrecrever com usuários da nuvem (Firestore)
-  cloudUsers.forEach((u) => {
-    const key = u.id || (u.code ? u.code.toLowerCase().trim() : u.email.toLowerCase().trim());
-    map.set(key, u);
-  });
+    const hasDev = cleanCloudUsers.some(
+      (u) => u.role === 'developer' || u.email === 'admin@mediaplus.com.br' || u.id === 'usr-admin'
+    );
 
-  // 3. Garantir credenciais do Desenvolvedor KATHYEL ROCHA (G1073 / 0000)
-  const merged = Array.from(map.values()).map((u) => {
-    if (u.role === 'developer' || u.email === 'admin@mediaplus.com.br' || u.id === 'usr-admin') {
-      return {
-        ...u,
+    if (!hasDev) {
+      const dev = initial.find((u) => u.role === 'developer') || {
         id: 'usr-admin',
         code: 'G1073',
         name: 'KATHYEL ROCHA',
@@ -74,28 +69,12 @@ const mergeUserLists = (initial: User[], cloudUsers: User[]): User[] => {
         phone: '(66) 99999-8888',
         active: true,
       };
+      return [...cleanCloudUsers, dev];
     }
-    return u;
-  });
-
-  // 4. Garantir presença do Supervisor PEDRO BRUNO (G1000 / 1234)
-  const hasG1000 = merged.some(
-    (u) => (u.code || '').toLowerCase().trim() === 'g1000' || (u.email || '').toLowerCase().trim() === 'pedro.bruno@mediaplus.com.br'
-  );
-  if (!hasG1000) {
-    merged.push({
-      id: 'usr-g1000',
-      code: 'G1000',
-      name: 'PEDRO BRUNO',
-      email: 'pedro.bruno@mediaplus.com.br',
-      password: '1234',
-      role: 'supervisor',
-      phone: '(81) 99999-1000',
-      active: true,
-    });
+    return cleanCloudUsers;
   }
 
-  return merged;
+  return initial.filter((u) => !isPedroBruno(u));
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

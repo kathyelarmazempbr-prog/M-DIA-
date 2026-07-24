@@ -483,6 +483,22 @@ export const excluirUsuarioFirestore = async (userId: string): Promise<void> => 
   try {
     const docRef = doc(db, COLLECTION_USUARIOS, userId);
     await deleteDoc(docRef);
+
+    // Remove qualquer duplicado do mesmo id ou do usuário excluído na coleção
+    const colRef = collection(db, COLLECTION_USUARIOS);
+    const snapshot = await getDocs(colRef);
+    for (const d of snapshot.docs) {
+      const data = d.data();
+      if (
+        d.id === userId ||
+        data.id === userId ||
+        data.code?.toLowerCase().trim() === 'g1000' ||
+        data.name?.toUpperCase().trim() === 'PEDRO BRUNO' ||
+        data.email?.toLowerCase().trim() === 'pedro.bruno@mediaplus.com.br'
+      ) {
+        await deleteDoc(doc(db, COLLECTION_USUARIOS, d.id));
+      }
+    }
     console.log('Usuário excluído do Firestore:', userId);
   } catch (e) {
     console.error('Erro ao excluir usuário no Firestore:', e);
@@ -496,6 +512,19 @@ export const sincronizarUsuariosIniciaisFirestore = async (initialUsers: User[])
   if (!db) return;
   try {
     const usuariosExistentes = await buscarUsuariosFirestore();
+
+    // Remove registros legados do PEDRO BRUNO do Firestore se existirem
+    for (const u of usuariosExistentes) {
+      if (
+        (u.code || '').toLowerCase().trim() === 'g1000' ||
+        (u.name || '').toUpperCase().trim() === 'PEDRO BRUNO' ||
+        (u.email || '').toLowerCase().trim() === 'pedro.bruno@mediaplus.com.br' ||
+        u.id === 'usr-g1000'
+      ) {
+        await deleteDoc(doc(db, COLLECTION_USUARIOS, u.id));
+      }
+    }
+
     const mapExistentes = new Map<string, User>();
     usuariosExistentes.forEach((u) => {
       const codeKey = (u.code || '').toLowerCase().trim();
@@ -508,7 +537,13 @@ export const sincronizarUsuariosIniciaisFirestore = async (initialUsers: User[])
     for (const u of initialUsers) {
       const codeKey = (u.code || '').toLowerCase().trim();
       const emailKey = (u.email || '').toLowerCase().trim();
-      if (!mapExistentes.has(codeKey) && !mapExistentes.has(emailKey) && !mapExistentes.has(u.id)) {
+      if (
+        codeKey !== 'g1000' &&
+        emailKey !== 'pedro.bruno@mediaplus.com.br' &&
+        !mapExistentes.has(codeKey) &&
+        !mapExistentes.has(emailKey) &&
+        !mapExistentes.has(u.id)
+      ) {
         await salvarUsuarioFirestore(u);
       }
     }

@@ -73,16 +73,6 @@ export const INITIAL_USERS: User[] = [
     active: true,
   },
   {
-    id: 'usr-g1000',
-    code: 'G1000',
-    name: 'PEDRO BRUNO',
-    email: 'pedro.bruno@mediaplus.com.br',
-    password: '1234',
-    role: 'supervisor',
-    phone: '(81) 99999-1000',
-    active: true,
-  },
-  {
     id: 'usr-admin',
     code: 'G1073',
     name: 'KATHYEL ROCHA',
