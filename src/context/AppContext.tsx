@@ -45,11 +45,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_USERS_KEY = 'media_plus_users_v2';
-const LOCAL_STORAGE_TRIPS_KEY = 'media_plus_trips_v2';
-const LOCAL_STORAGE_AUTH_KEY = 'media_plus_auth_user_id_v2';
-
-const mergeUserLists = (initial: User[], saved: User[]): User[] => {
+const mergeUserLists = (initial: User[], cloudUsers: User[]): User[] => {
   const map = new Map<string, User>();
 
   // 1. Inserir usuários iniciais padrões
@@ -58,8 +54,8 @@ const mergeUserLists = (initial: User[], saved: User[]): User[] => {
     map.set(key, u);
   });
 
-  // 2. Mesclar/sobrecrever com usuários salvos no localStorage
-  saved.forEach((u) => {
+  // 2. Mesclar/sobrecrever com usuários da nuvem (Firestore)
+  cloudUsers.forEach((u) => {
     const key = u.id || (u.code ? u.code.toLowerCase().trim() : u.email.toLowerCase().trim());
     map.set(key, u);
   });
@@ -103,42 +99,9 @@ const mergeUserLists = (initial: User[], saved: User[]): User[] => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [users, setUsers] = useState<User[]>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
-      if (saved) {
-        const parsed: User[] = JSON.parse(saved);
-        return mergeUserLists(INITIAL_USERS, parsed);
-      }
-      return mergeUserLists(INITIAL_USERS, []);
-    } catch (e) {
-      console.error('Failed to load users from localStorage', e);
-      return mergeUserLists(INITIAL_USERS, []);
-    }
-  });
-
-  const [trips, setTrips] = useState<Trip[]>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_TRIPS_KEY);
-      return saved ? JSON.parse(saved) : INITIAL_TRIPS;
-    } catch (e) {
-      console.error('Failed to load trips from localStorage', e);
-      return INITIAL_TRIPS;
-    }
-  });
-
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-      const savedId = localStorage.getItem(LOCAL_STORAGE_AUTH_KEY);
-      if (savedId) {
-        const found = users.find((u) => u.id === savedId);
-        if (found) return found;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  });
+  const [users, setUsers] = useState<User[]>(() => mergeUserLists(INITIAL_USERS, []));
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Sincroniza e ouve a coleção de usuários no Firestore em tempo real
   useEffect(() => {
@@ -146,15 +109,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubUsers = ouvirUsuariosEmTempoReal((cloudUsers) => {
       if (cloudUsers && cloudUsers.length > 0) {
-        setUsers((prev) => {
-          const merged = mergeUserLists(INITIAL_USERS, cloudUsers);
-          try {
-            localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(merged));
-          } catch (e) {
-            console.error('Erro ao salvar usuários no localStorage:', e);
-          }
-          return merged;
-        });
+        setUsers(mergeUserLists(INITIAL_USERS, cloudUsers));
       }
     });
 
@@ -176,40 +131,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         : undefined;
 
     const unsubscribe = ouvirLancamentosEmTempoReal((firebaseTrips) => {
-      if (firebaseTrips && firebaseTrips.length > 0) {
-        setTrips((prev) => {
-          const map = new Map<string, Trip>();
-          // Inserir viagens vindas do Firestore
-          firebaseTrips.forEach((ft) => map.set(ft.id, ft));
-          // Preservar lançamentos locais recém-criados que ainda não estão no Firestore
-          prev.forEach((pt) => {
-            if (!map.has(pt.id)) {
-              map.set(pt.id, pt);
-            }
-          });
-          const merged = Array.from(map.values());
-          merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          try {
-            localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(merged));
-          } catch (e) {
-            console.error('Erro ao salvar viagens no localStorage:', e);
-          }
-          return merged;
-        });
-      } else {
-        // Se o Firestore retornar lista vazia, preservar o que está no localStorage
-        try {
-          const savedTrips = localStorage.getItem(LOCAL_STORAGE_TRIPS_KEY);
-          if (savedTrips) {
-            const parsed: Trip[] = JSON.parse(savedTrips);
-            if (parsed && parsed.length > 0) {
-              setTrips(parsed);
-              return;
-            }
-          }
-        } catch (e) {
-          console.error('Erro ao carregar viagens salvas:', e);
-        }
+      if (firebaseTrips) {
+        setTrips(firebaseTrips);
       }
     }, filtroSeguro);
 
@@ -222,9 +145,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sincroniza sessão do Firebase Auth no carregamento inicial
   useEffect(() => {
-    const unsubAuth = escutarSessaoFirebase((fbUser) => {
-      if (fbUser && !currentUser) {
-        const matched = users.find(
+    const unsubAuth = escutarSessaoFirebase(async (fbUser) => {
+      if (fbUser) {
+        let currentList = users;
+        try {
+          const cloud = await buscarUsuariosFirestore();
+          if (cloud && cloud.length > 0) {
+            currentList = mergeUserLists(INITIAL_USERS, cloud);
+            setUsers(currentList);
+          }
+        } catch (e) {}
+
+        const matched = currentList.find(
           (u) =>
             u.email.toLowerCase() === fbUser.email?.toLowerCase() ||
             fbUser.email?.startsWith(u.code.toLowerCase())
@@ -242,35 +174,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [thresholds] = useState<PerformanceThresholds>(DEFAULT_THRESHOLDS);
 
-  // Sync to local storage
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(users));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [users]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(trips));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [trips]);
-
-  useEffect(() => {
-    try {
-      if (currentUser) {
-        localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, currentUser.id);
-      } else {
-        localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, [currentUser]);
-
   const login = async (emailOrCode: string, pass: string): Promise<boolean> => {
     const term = emailOrCode ? emailOrCode.trim().toLowerCase() : '';
     const cleanPass = pass ? pass.trim() : '';
@@ -280,32 +183,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    // 1. Consulta diretamente o banco de dados remoto/nuvem (Firestore)
+    // Consulta diretamente o banco de dados na nuvem (Firestore)
     let currentUsersList = users;
     try {
       const cloudUsers = await buscarUsuariosFirestore();
       if (cloudUsers && cloudUsers.length > 0) {
         currentUsersList = mergeUserLists(INITIAL_USERS, cloudUsers);
         setUsers(currentUsersList);
-        try {
-          localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(currentUsersList));
-        } catch (e) {}
-      } else {
-        const saved = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
-        if (saved) {
-          const parsedSaved: User[] = JSON.parse(saved);
-          currentUsersList = mergeUserLists(INITIAL_USERS, parsedSaved);
-        }
       }
     } catch (e) {
       console.error('Erro ao consultar usuários no Firestore durante o login:', e);
-      const saved = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
-      if (saved) {
-        try {
-          const parsedSaved: User[] = JSON.parse(saved);
-          currentUsersList = mergeUserLists(INITIAL_USERS, parsedSaved);
-        } catch (err) {}
-      }
     }
 
     // 1. Procurar usuário por email, código ou nome
@@ -382,15 +269,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
 
-    setTrips((prev) => {
-      const updated = [newTrip, ...prev];
-      try {
-        localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Erro ao salvar nova viagem no localStorage:', e);
-      }
-      return updated;
-    });
+    setTrips((prev) => [newTrip, ...prev]);
 
     // Persiste no Firestore em segundo plano
     salvarLancamento({
@@ -410,13 +289,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     })
       .then((fireId) => {
         if (fireId && !fireId.startsWith('local-')) {
-          setTrips((prev) => {
-            const updated = prev.map((t) => (t.id === tempId ? { ...t, id: fireId } : t));
-            try {
-              localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(updated));
-            } catch (e) {}
-            return updated;
-          });
+          setTrips((prev) => prev.map((t) => (t.id === tempId ? { ...t, id: fireId } : t)));
         }
       })
       .catch((err) => console.error('Erro ao salvar no Firestore:', err));
@@ -430,15 +303,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: new Date().toISOString(),
     };
 
-    setTrips((prev) => {
-      const updated = prev.map((t) => (t.id === tripToSave.id ? tripToSave : t));
-      try {
-        localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Erro ao atualizar viagem no localStorage:', e);
-      }
-      return updated;
-    });
+    setTrips((prev) => prev.map((t) => (t.id === tripToSave.id ? tripToSave : t)));
 
     if (tripToSave.id && !tripToSave.id.startsWith('trp-')) {
       atualizarLancamento(tripToSave.id, {
@@ -455,15 +320,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteTrip = (tripId: string) => {
-    setTrips((prev) => {
-      const updated = prev.filter((t) => t.id !== tripId);
-      try {
-        localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Erro ao remover viagem do localStorage:', e);
-      }
-      return updated;
-    });
+    setTrips((prev) => prev.filter((t) => t.id !== tripId));
 
     if (tripId && !tripId.startsWith('trp-')) {
       excluirLancamento(tripId).catch((err) => console.error('Erro ao excluir no Firestore:', err));
@@ -480,15 +337,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       password: (userData.password || '').trim(),
       active: userData.active ?? true,
     };
-    setUsers((prev) => {
-      const updated = [...prev, newUser];
-      try {
-        localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to save users to localStorage:', e);
-      }
-      return updated;
-    });
+
+    setUsers((prev) => [...prev, newUser]);
 
     // Sincroniza novo usuário na nuvem (Firestore)
     salvarUsuarioFirestore(newUser).catch((err) => console.error('Erro ao salvar usuário no Firestore:', err));
@@ -504,15 +354,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       password: (updatedUser.password || '').trim(),
       active: updatedUser.active ?? true,
     };
-    setUsers((prev) => {
-      const updated = prev.map((u) => (u.id === cleanedUser.id ? cleanedUser : u));
-      try {
-        localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to save users to localStorage:', e);
-      }
-      return updated;
-    });
+
+    setUsers((prev) => prev.map((u) => (u.id === cleanedUser.id ? cleanedUser : u)));
     if (currentUser?.id === cleanedUser.id) {
       setCurrentUser(cleanedUser);
     }
@@ -522,15 +365,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteUser = (userId: string) => {
-    setUsers((prev) => {
-      const updated = prev.filter((u) => u.id !== userId);
-      try {
-        localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to save users to localStorage:', e);
-      }
-      return updated;
-    });
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
     if (currentUser?.id === userId) {
       setCurrentUser(null);
     }
@@ -541,16 +376,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resetToDefaultData = () => {
     setUsers(INITIAL_USERS);
-    setTrips(INITIAL_TRIPS);
-    setCurrentUser(INITIAL_USERS[0]);
-    localStorage.removeItem(LOCAL_STORAGE_USERS_KEY);
-    localStorage.removeItem(LOCAL_STORAGE_TRIPS_KEY);
-    localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
+    setTrips([]);
+    setCurrentUser(null);
   };
 
   const clearAllTrips = async (): Promise<void> => {
     setTrips([]);
-    localStorage.removeItem(LOCAL_STORAGE_TRIPS_KEY);
     await apagarTodosLancamentos();
   };
 
