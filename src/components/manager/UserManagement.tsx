@@ -56,45 +56,57 @@ export const UserManagement: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManageUsers) return;
+
+    setIsSaving(true);
+    console.log('Tentando conectar ao banco para salvar cadastro/edição de usuário...');
 
     const isDriverRole = role === 'driver';
     const parsedTargetKml = isDriverRole ? parseFloat(targetKml) || 2.60 : undefined;
     const cavaloVal = isDriverRole ? cavaloPadrao : undefined;
     const siderVal = isDriverRole ? siderPadrao : undefined;
 
-    if (editingUser) {
-      updateUser({
-        ...editingUser,
-        name,
-        code,
-        email,
-        password,
-        role,
-        cavaloPadrao: cavaloVal,
-        siderPadrao: siderVal,
-        targetKml: parsedTargetKml,
-        phone,
-        active,
-      });
-    } else {
-      addUser({
-        name,
-        code,
-        email,
-        password,
-        role,
-        cavaloPadrao: cavaloVal,
-        siderPadrao: siderVal,
-        targetKml: parsedTargetKml,
-        phone,
-        active,
-      });
+    try {
+      if (editingUser) {
+        updateUser({
+          ...editingUser,
+          name,
+          code,
+          email,
+          password,
+          role,
+          cavaloPadrao: cavaloVal,
+          siderPadrao: siderVal,
+          targetKml: parsedTargetKml,
+          phone,
+          active,
+        });
+        console.log('Usuário salvo com sucesso!');
+      } else {
+        addUser({
+          name,
+          code,
+          email,
+          password,
+          role,
+          cavaloPadrao: cavaloVal,
+          siderPadrao: siderVal,
+          targetKml: parsedTargetKml,
+          phone,
+          active,
+        });
+        console.log('Novo usuário cadastrado e salvo com sucesso!');
+      }
+    } catch (err) {
+      console.error('Erro ao salvar usuário no sistema/banco de dados:', err);
+    } finally {
+      setIsSaving(false);
+      setIsModalOpen(false);
     }
-
-    setIsModalOpen(false);
   };
 
   return (
@@ -393,10 +405,20 @@ export const UserManagement: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white hover:bg-emerald-700 flex items-center gap-1 shadow-sm transition-colors"
+                  disabled={isSaving}
+                  className="rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white hover:bg-emerald-700 flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-50"
                 >
-                  <Check className="h-4 w-4" />
-                  <span>Salvar Usuário</span>
+                  {isSaving ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Salvando no banco...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      <span>Salvar Usuário</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

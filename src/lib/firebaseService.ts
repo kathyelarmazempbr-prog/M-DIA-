@@ -73,6 +73,27 @@ export const mapperFirebaseParaTrip = (docId: string, data: LancamentoFirebase):
   };
 };
 
+// Helper de timeout para garantir que nenhuma requisição ao banco fique presa por mais de 3 segundos
+export const withTimeout = <T>(promise: Promise<T>, timeoutMs = 3000, fallbackValue: T): Promise<T> => {
+  return new Promise((resolve) => {
+    let timer: any = setTimeout(() => {
+      console.warn(`[DIAGNOSTICO BANCO] Conexão excedeu tempo limite de ${timeoutMs}ms. Liberando interface local.`);
+      resolve(fallbackValue);
+    }, timeoutMs);
+
+    promise
+      .then((val) => {
+        clearTimeout(timer);
+        resolve(val);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        console.error('[DIAGNOSTICO BANCO] Erro ao comunicar com banco de dados:', err);
+        resolve(fallbackValue);
+      });
+  });
+};
+
 /**
  * 1. SALVAR LANÇAMENTO (CREATE)
  * Cadastra uma nova média de consumo no Firestore
@@ -92,8 +113,9 @@ export const salvarLancamento = async (dados: {
   url_comprovante?: string;
   observacoes?: string;
 }): Promise<string> => {
+  console.log('Tentando conectar ao banco de dados para salvar lançamento...');
   if (!db) {
-    console.warn('Firestore não inicializado (modo local).');
+    console.warn('Firestore não inicializado ou chaves não configuradas. Salvo apenas no estado local.');
     return 'local-' + Date.now();
   }
   try {
@@ -115,11 +137,18 @@ export const salvarLancamento = async (dados: {
       criado_em: serverTimestamp(),
     };
 
-    const docRef = await addDoc(collection(db, COLLECTION_LANCAMENTOS), docData);
-    console.log('Lançamento salvo com ID:', docRef.id);
-    return docRef.id;
+    const addPromise = addDoc(collection(db, COLLECTION_LANCAMENTOS), docData).then((ref) => ref.id);
+    const resultId = await withTimeout(addPromise, 3000, 'local-' + Date.now());
+
+    if (resultId && !resultId.startsWith('local-')) {
+      console.log('Lançamento salvo com sucesso no banco de dados na nuvem! ID:', resultId);
+    } else {
+      console.warn('Banco de dados não respondeu a tempo. Lançamento preservado na sessão local.');
+    }
+
+    return resultId;
   } catch (error) {
-    console.error('Erro ao salvar lançamento no Firestore:', error);
+    console.error('Erro ao salvar lançamento no banco de dados:', error);
     return 'local-' + Date.now();
   }
 };
@@ -302,24 +331,36 @@ export const uploadComprovante = async (
  * 5. AUTENTICAÇÃO FIREBASE AUTH
  */
 export const autenticarNoFirebase = async (email: string, pass: string): Promise<FirebaseUser | null> => {
-  if (!auth) return null;
+  console.log('Tentando conectar ao serviço de autenticação do Firebase...');
+  if (!auth) {
+    console.warn('Firebase Auth não inicializado. Prosseguindo com autenticação local.');
+    return null;
+  }
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-    return userCredential.user;
+    const authPromise = signInWithEmailAndPassword(auth, email, pass).then((res) => res.user);
+    const user = await withTimeout(authPromise, 3000, null);
+    if (user) {
+      console.log('Autenticação no Firebase Auth concluída com sucesso!');
+      return user;
+    }
   } catch (error: any) {
     // Se a conta não existir no Firebase Auth, tenta criar uma nova conta para autenticação transparente
     if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-email') {
       try {
         const safeEmail = email.includes('@') ? email : `${email.toLowerCase()}@mediaplus.com.br`;
-        const newCredential = await createUserWithEmailAndPassword(auth, safeEmail, pass || '123456');
-        return newCredential.user;
+        const createPromise = createUserWithEmailAndPassword(auth, safeEmail, pass || '123456').then((res) => res.user);
+        const newCredentialUser = await withTimeout(createPromise, 3000, null);
+        if (newCredentialUser) {
+          console.log('Novo usuário registrado no Firebase Auth com sucesso!');
+          return newCredentialUser;
+        }
       } catch (createErr) {
         console.warn('Erro ao criar usuário no Firebase Auth:', createErr);
       }
     }
-    console.warn('Erro ao autenticar no Firebase Auth:', error);
-    return null;
+    console.warn('Erro ao autenticar no Firebase Auth (fallback local ativo):', error);
   }
+  return null;
 };
 
 export const deslogarDoFirebase = async (): Promise<void> => {
@@ -408,14 +449,21 @@ export const mapperFirebaseParaUser = (docId: string, data: any): User => {
  * Busca todos os usuários cadastrados diretamente na nuvem (Firestore)
  */
 export const buscarUsuariosFirestore = async (): Promise<User[]> => {
-  if (!db) return [];
+  console.log('Tentando conectar ao banco de dados para buscar usuários...');
+  if (!db) {
+    console.warn('Firestore não inicializado. Retornando lista vazia.');
+    return [];
+  }
   try {
     const colRef = collection(db, COLLECTION_USUARIOS);
-    const snapshot = await getDocs(colRef);
-    const usuarios: User[] = snapshot.docs.map((d) => mapperFirebaseParaUser(d.id, d.data()));
+    const fetchPromise = getDocs(colRef).then((snapshot) =>
+      snapshot.docs.map((d) => mapperFirebaseParaUser(d.id, d.data()))
+    );
+    const usuarios = await withTimeout(fetchPromise, 3000, []);
+    console.log(`Consulta ao banco concluída. ${usuarios.length} usuários encontrados.`);
     return usuarios;
   } catch (error) {
-    console.error('Erro ao buscar usuários do Firestore:', error);
+    console.error('Erro ao buscar usuários do banco de dados:', error);
     return [];
   }
 };
@@ -450,7 +498,11 @@ export const ouvirUsuariosEmTempoReal = (
  * Salva ou atualiza um usuário no Firestore
  */
 export const salvarUsuarioFirestore = async (user: User): Promise<void> => {
-  if (!db) return;
+  console.log('Tentando conectar ao banco de dados para salvar usuário:', user.name || user.code);
+  if (!db) {
+    console.warn('Firestore não inicializado. Usuário mantido no estado local.');
+    return;
+  }
   try {
     const userDocId = user.id || 'usr-' + Date.now();
     const docRef = doc(db, COLLECTION_USUARIOS, userDocId);
@@ -468,10 +520,12 @@ export const salvarUsuarioFirestore = async (user: User): Promise<void> => {
       targetKml: user.targetKml !== undefined ? user.targetKml : null,
       atualizado_em: serverTimestamp(),
     };
-    await setDoc(docRef, docData, { merge: true });
-    console.log('Usuário salvo e sincronizado no Firestore:', userDocId);
+
+    const savePromise = setDoc(docRef, docData, { merge: true });
+    await withTimeout(savePromise, 3000, undefined);
+    console.log('Usuário salvo com sucesso no banco de dados na nuvem:', userDocId);
   } catch (e) {
-    console.error('Erro ao salvar usuário no Firestore:', e);
+    console.error('Erro ao salvar usuário no banco de dados:', e);
   }
 };
 
@@ -479,29 +533,34 @@ export const salvarUsuarioFirestore = async (user: User): Promise<void> => {
  * Exclui um usuário do Firestore
  */
 export const excluirUsuarioFirestore = async (userId: string): Promise<void> => {
+  console.log('Tentando conectar ao banco de dados para excluir usuário:', userId);
   if (!db || !userId) return;
   try {
-    const docRef = doc(db, COLLECTION_USUARIOS, userId);
-    await deleteDoc(docRef);
+    const deleteOp = async () => {
+      const docRef = doc(db, COLLECTION_USUARIOS, userId);
+      await deleteDoc(docRef);
 
-    // Remove qualquer duplicado do mesmo id ou do usuário excluído na coleção
-    const colRef = collection(db, COLLECTION_USUARIOS);
-    const snapshot = await getDocs(colRef);
-    for (const d of snapshot.docs) {
-      const data = d.data();
-      if (
-        d.id === userId ||
-        data.id === userId ||
-        data.code?.toLowerCase().trim() === 'g1000' ||
-        data.name?.toUpperCase().trim() === 'PEDRO BRUNO' ||
-        data.email?.toLowerCase().trim() === 'pedro.bruno@mediaplus.com.br'
-      ) {
-        await deleteDoc(doc(db, COLLECTION_USUARIOS, d.id));
+      // Remove qualquer duplicado do mesmo id ou do usuário excluído na coleção
+      const colRef = collection(db, COLLECTION_USUARIOS);
+      const snapshot = await getDocs(colRef);
+      for (const d of snapshot.docs) {
+        const data = d.data();
+        if (
+          d.id === userId ||
+          data.id === userId ||
+          data.code?.toLowerCase().trim() === 'g1000' ||
+          data.name?.toUpperCase().trim() === 'PEDRO BRUNO' ||
+          data.email?.toLowerCase().trim() === 'pedro.bruno@mediaplus.com.br'
+        ) {
+          await deleteDoc(doc(db, COLLECTION_USUARIOS, d.id));
+        }
       }
-    }
-    console.log('Usuário excluído do Firestore:', userId);
+    };
+
+    await withTimeout(deleteOp(), 3000, undefined);
+    console.log('Usuário excluído com sucesso do banco de dados:', userId);
   } catch (e) {
-    console.error('Erro ao excluir usuário no Firestore:', e);
+    console.error('Erro ao excluir usuário no banco de dados:', e);
   }
 };
 

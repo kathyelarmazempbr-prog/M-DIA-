@@ -154,6 +154,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [thresholds] = useState<PerformanceThresholds>(DEFAULT_THRESHOLDS);
 
   const login = async (emailOrCode: string, pass: string): Promise<boolean> => {
+    console.log('Tentando conectar ao banco para realizar login...');
     const term = emailOrCode ? emailOrCode.trim().toLowerCase() : '';
     const cleanPass = pass ? pass.trim() : '';
 
@@ -162,16 +163,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    // Consulta diretamente o banco de dados na nuvem (Firestore)
+    // Consulta banco de dados na nuvem com fallback
     let currentUsersList = users;
     try {
+      console.log('Consultando usuários na nuvem (Firestore)...');
       const cloudUsers = await buscarUsuariosFirestore();
       if (cloudUsers && cloudUsers.length > 0) {
+        console.log(`Usuários carregados da nuvem (${cloudUsers.length} registros).`);
         currentUsersList = mergeUserLists(INITIAL_USERS, cloudUsers);
         setUsers(currentUsersList);
+      } else {
+        console.warn('Banco não retornou usuários ou está indisponível. Usando lista em memória.');
       }
     } catch (e) {
-      console.error('Erro ao consultar usuários no Firestore durante o login:', e);
+      console.error('Erro ao consultar usuários no banco de dados durante o login:', e);
     }
 
     // 1. Procurar usuário por email, código ou nome
@@ -240,6 +245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addTrip = (tripData: Omit<Trip, 'id' | 'createdAt' | 'status'>): Trip => {
+    console.log('Tentando conectar ao banco para salvar lançamento...');
     const tempId = 'trp-' + Date.now();
     const newTrip: Trip = {
       ...tripData,
@@ -250,33 +256,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setTrips((prev) => [newTrip, ...prev]);
 
-    // Persiste no Firestore em segundo plano
-    salvarLancamento({
-      id_motorista: tripData.driverId,
-      cod_motorista: tripData.driverCode,
-      nome_motorista: tripData.driverName,
-      data_registro: tripData.date,
-      destino: tripData.destinationName,
-      codigo_destino: tripData.destinationCode,
-      origem: tripData.originName,
-      codigo_origem: tripData.originCode,
-      placa_cavalo: tripData.cavaloPlate,
-      placa_carreta: tripData.siderPlate,
-      media_consumo: tripData.kml,
-      url_comprovante: tripData.proofUrl,
-      observacoes: tripData.notes,
-    })
-      .then((fireId) => {
-        if (fireId && !fireId.startsWith('local-')) {
-          setTrips((prev) => prev.map((t) => (t.id === tempId ? { ...t, id: fireId } : t)));
-        }
+    // Persiste no Firestore em segundo plano com try/catch
+    try {
+      salvarLancamento({
+        id_motorista: tripData.driverId,
+        cod_motorista: tripData.driverCode,
+        nome_motorista: tripData.driverName,
+        data_registro: tripData.date,
+        destino: tripData.destinationName,
+        codigo_destino: tripData.destinationCode,
+        origem: tripData.originName,
+        codigo_origem: tripData.originCode,
+        placa_cavalo: tripData.cavaloPlate,
+        placa_carreta: tripData.siderPlate,
+        media_consumo: tripData.kml,
+        url_comprovante: tripData.proofUrl,
+        observacoes: tripData.notes,
       })
-      .catch((err) => console.error('Erro ao salvar no Firestore:', err));
+        .then((fireId) => {
+          if (fireId && !fireId.startsWith('local-')) {
+            console.log('Lançamento salvo com sucesso no banco de dados:', fireId);
+            setTrips((prev) => prev.map((t) => (t.id === tempId ? { ...t, id: fireId } : t)));
+          } else {
+            console.log('Lançamento mantido na sessão local.');
+          }
+        })
+        .catch((err) => console.error('Erro ao salvar lançamento no banco de dados:', err));
+    } catch (e) {
+      console.error('Erro ao salvar lançamento no banco de dados:', e);
+    }
 
     return newTrip;
   };
 
   const updateTrip = (updatedTrip: Trip) => {
+    console.log('Tentando conectar ao banco para atualizar lançamento...');
     const tripToSave: Trip = {
       ...updatedTrip,
       updatedAt: new Date().toISOString(),
@@ -284,29 +298,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setTrips((prev) => prev.map((t) => (t.id === tripToSave.id ? tripToSave : t)));
 
-    if (tripToSave.id && !tripToSave.id.startsWith('trp-')) {
-      atualizarLancamento(tripToSave.id, {
-        data_registro: tripToSave.date,
-        destino: tripToSave.destinationName,
-        codigo_destino: tripToSave.destinationCode,
-        placa_cavalo: tripToSave.cavaloPlate,
-        placa_carreta: tripToSave.siderPlate,
-        media_consumo: tripToSave.kml,
-        url_comprovante: tripToSave.proofUrl,
-        observacoes: tripToSave.notes,
-      }).catch((err) => console.error('Erro ao atualizar no Firestore:', err));
+    try {
+      if (tripToSave.id && !tripToSave.id.startsWith('trp-')) {
+        atualizarLancamento(tripToSave.id, {
+          data_registro: tripToSave.date,
+          destino: tripToSave.destinationName,
+          codigo_destino: tripToSave.destinationCode,
+          placa_cavalo: tripToSave.cavaloPlate,
+          placa_carreta: tripToSave.siderPlate,
+          media_consumo: tripToSave.kml,
+          url_comprovante: tripToSave.proofUrl,
+          observacoes: tripToSave.notes,
+        })
+          .then(() => console.log('Lançamento atualizado com sucesso no banco de dados!'))
+          .catch((err) => console.error('Erro ao atualizar no banco de dados:', err));
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar lançamento no banco de dados:', e);
     }
   };
 
   const deleteTrip = (tripId: string) => {
+    console.log('Tentando conectar ao banco para excluir lançamento...');
     setTrips((prev) => prev.filter((t) => t.id !== tripId));
 
-    if (tripId && !tripId.startsWith('trp-')) {
-      excluirLancamento(tripId).catch((err) => console.error('Erro ao excluir no Firestore:', err));
+    try {
+      if (tripId && !tripId.startsWith('trp-')) {
+        excluirLancamento(tripId)
+          .then(() => console.log('Lançamento excluído com sucesso do banco de dados!'))
+          .catch((err) => console.error('Erro ao excluir no banco de dados:', err));
+      }
+    } catch (e) {
+      console.error('Erro ao excluir lançamento no banco de dados:', e);
     }
   };
 
   const addUser = (userData: Omit<User, 'id'>): User => {
+    console.log('Tentando conectar ao banco para cadastrar novo usuário:', userData.name || userData.code);
     const newUserId = 'usr-' + Date.now();
     const newUser: User = {
       ...userData,
@@ -319,13 +347,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setUsers((prev) => [...prev, newUser]);
 
-    // Sincroniza novo usuário na nuvem (Firestore)
-    salvarUsuarioFirestore(newUser).catch((err) => console.error('Erro ao salvar usuário no Firestore:', err));
+    // Sincroniza novo usuário na nuvem (Firestore) com try/catch
+    try {
+      salvarUsuarioFirestore(newUser)
+        .then(() => console.log('Usuário salvo com sucesso no banco de dados!'))
+        .catch((err) => console.error('Erro ao salvar usuário no banco de dados:', err));
+    } catch (e) {
+      console.error('Erro ao salvar usuário no banco de dados:', e);
+    }
 
     return newUser;
   };
 
   const updateUser = (updatedUser: User) => {
+    console.log('Tentando conectar ao banco para atualizar usuário:', updatedUser.name || updatedUser.code);
     const cleanedUser: User = {
       ...updatedUser,
       code: (updatedUser.code || '').trim(),
@@ -340,17 +375,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Sincroniza usuário editado na nuvem (Firestore)
-    salvarUsuarioFirestore(cleanedUser).catch((err) => console.error('Erro ao atualizar usuário no Firestore:', err));
+    try {
+      salvarUsuarioFirestore(cleanedUser)
+        .then(() => console.log('Usuário salvo com sucesso no banco de dados!'))
+        .catch((err) => console.error('Erro ao atualizar usuário no banco de dados:', err));
+    } catch (e) {
+      console.error('Erro ao atualizar usuário no banco de dados:', e);
+    }
   };
 
   const deleteUser = (userId: string) => {
+    console.log('Tentando conectar ao banco para excluir usuário:', userId);
     setUsers((prev) => prev.filter((u) => u.id !== userId));
     if (currentUser?.id === userId) {
       setCurrentUser(null);
     }
 
     // Exclui usuário na nuvem (Firestore)
-    excluirUsuarioFirestore(userId).catch((err) => console.error('Erro ao excluir usuário no Firestore:', err));
+    try {
+      excluirUsuarioFirestore(userId)
+        .then(() => console.log('Usuário excluído com sucesso do banco de dados!'))
+        .catch((err) => console.error('Erro ao excluir usuário no banco de dados:', err));
+    } catch (e) {
+      console.error('Erro ao excluir usuário no banco de dados:', e);
+    }
   };
 
   const resetToDefaultData = () => {

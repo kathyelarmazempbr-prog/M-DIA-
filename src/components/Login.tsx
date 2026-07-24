@@ -13,14 +13,26 @@ export const Login: React.FC = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    console.log(`[LOGIN INICIADO] Tentando autenticar usuário: "${identifier}"`);
+
+    // Timer de segurança de 3.5s para garantir liberação do botão em qualquer cenário
+    const safetyTimer = setTimeout(() => {
+      console.warn('[LOGIN TIMEOUT] Liberando botão de login por limite de tempo.');
+      setLoading(false);
+    }, 3500);
+
     try {
       const success = await login(identifier, password);
       if (!success) {
         setError('Usuário ou senha incorretos. Informe seu e-mail ou código de motorista.');
+      } else {
+        console.log('[LOGIN OK] Login concluído com sucesso!');
       }
     } catch (err) {
-      setError('Erro ao realizar login no Firebase Auth.');
+      console.error('[LOGIN ERRO] Exceção capturada ao realizar login:', err);
+      setError('Erro ao realizar login no banco de dados. Tente novamente.');
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
     }
   };
