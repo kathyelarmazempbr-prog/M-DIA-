@@ -97,8 +97,17 @@ export const Login: React.FC = () => {
               disabled={loading}
               className="w-full mt-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3.5 px-4 text-sm font-bold text-white transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <LogIn className="h-4 w-4 stroke-[2.5]" />
-              <span>{loading ? 'Autenticando...' : 'Entrar no Sistema'}</span>
+              {loading ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Consultando banco de dados na nuvem...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="h-4 w-4 stroke-[2.5]" />
+                  <span>Entrar no Sistema</span>
+                </>
+              )}
             </button>
           </form>
         </div>

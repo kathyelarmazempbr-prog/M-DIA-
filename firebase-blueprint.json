@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Usuário do sistema (Motorista, Supervisor, Desenvolvedor, Admin)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "password": { "type": "string" },
+        "role": { "type": "string" },
+        "phone": { "type": "string" },
+        "active": { "type": "boolean" },
+        "cavaloPadrao": { "type": "string" },
+        "siderPadrao": { "type": "string" },
+        "targetKml": { "type": "number" }
+      },
+      "required": ["code", "name", "email", "role", "active"]
+    },
+    "Lancamento": {
+      "title": "Lancamento",
+      "description": "Lançamento de viagem e consumo de combustível",
+      "type": "object",
+      "properties": {
+        "id_motorista": { "type": "string" },
+        "cod_motorista": { "type": "string" },
+        "nome_motorista": { "type": "string" },
+        "data_registro": { "type": "string" },
+        "origem": { "type": "string" },
+        "codigo_origem": { "type": "string" },
+        "destino": { "type": "string" },
+        "codigo_destino": { "type": "string" },
+        "placa_cavalo": { "type": "string" },
+        "placa_carreta": { "type": "string" },
+        "media_consumo": { "type": "number" },
+        "url_comprovante": { "type": "string" },
+        "observacoes": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id_motorista", "cod_motorista", "nome_motorista", "data_registro", "destino", "placa_cavalo", "placa_carreta", "media_consumo"]
+    }
+  },
+  "firestore": {
+    "/usuarios/{userId}": {
+      "schema": "User",
+      "description": "Coleção de usuários para sincronização entre dispositivos"
+    },
+    "/lancamentos/{lancamentoId}": {
+      "schema": "Lancamento",
+      "description": "Coleção de lançamentos de consumo de combustível"
+    }
+  }
+}

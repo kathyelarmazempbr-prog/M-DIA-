@@ -2,6 +2,8 @@ import {
   collection,
   doc,
   addDoc,
+  setDoc,
+  getDoc,
   updateDoc,
   deleteDoc,
   getDocs,
@@ -21,10 +23,11 @@ import {
 } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import { db, storage, auth } from './firebase';
-import { Trip } from '../types';
+import { Trip, User } from '../types';
 
-// Coleção principal do Firestore
+// Coleções principais do Firestore
 const COLLECTION_LANCAMENTOS = 'lancamentos';
+const COLLECTION_USUARIOS = 'usuarios';
 
 export interface LancamentoFirebase {
   id?: string;
@@ -376,4 +379,142 @@ export const apagarTodosLancamentos = async (): Promise<void> => {
     console.error('Erro ao apagar todos os lançamentos no Firestore:', e);
   }
 };
+
+/**
+ * ==========================================
+ * GERENCIAMENTO DE USUÁRIOS NO FIRESTORE
+ * Sincronização multi-dispositivo em nuvem
+ * ==========================================
+ */
+
+export const mapperFirebaseParaUser = (docId: string, data: any): User => {
+  return {
+    id: docId || data.id,
+    code: data.code || '',
+    name: data.name || '',
+    email: data.email || '',
+    password: data.password || '',
+    role: data.role || 'driver',
+    phone: data.phone || '',
+    active: data.active ?? true,
+    cavaloPadrao: data.cavaloPadrao || '',
+    siderPadrao: data.siderPadrao || '',
+    targetKml: data.targetKml !== undefined && data.targetKml !== null ? Number(data.targetKml) : undefined,
+    avatarUrl: data.avatarUrl || '',
+  };
+};
+
+/**
+ * Busca todos os usuários cadastrados diretamente na nuvem (Firestore)
+ */
+export const buscarUsuariosFirestore = async (): Promise<User[]> => {
+  if (!db) return [];
+  try {
+    const colRef = collection(db, COLLECTION_USUARIOS);
+    const snapshot = await getDocs(colRef);
+    const usuarios: User[] = snapshot.docs.map((d) => mapperFirebaseParaUser(d.id, d.data()));
+    return usuarios;
+  } catch (error) {
+    console.error('Erro ao buscar usuários do Firestore:', error);
+    return [];
+  }
+};
+
+/**
+ * Ouve alterações na coleção de usuários em tempo real
+ */
+export const ouvirUsuariosEmTempoReal = (
+  callback: (usuarios: User[]) => void
+): (() => void) => {
+  if (!db) return () => {};
+  try {
+    const colRef = collection(db, COLLECTION_USUARIOS);
+    const unsubscribe = onSnapshot(
+      colRef,
+      (snapshot) => {
+        const usuarios: User[] = snapshot.docs.map((d) => mapperFirebaseParaUser(d.id, d.data()));
+        callback(usuarios);
+      },
+      (error) => {
+        console.error('Erro no listener em tempo real de usuários:', error);
+      }
+    );
+    return unsubscribe;
+  } catch (e) {
+    console.error('Erro ao registrar listener em tempo real de usuários:', e);
+    return () => {};
+  }
+};
+
+/**
+ * Salva ou atualiza um usuário no Firestore
+ */
+export const salvarUsuarioFirestore = async (user: User): Promise<void> => {
+  if (!db) return;
+  try {
+    const userDocId = user.id || 'usr-' + Date.now();
+    const docRef = doc(db, COLLECTION_USUARIOS, userDocId);
+    const docData: any = {
+      id: userDocId,
+      code: (user.code || '').trim(),
+      name: (user.name || '').trim(),
+      email: (user.email || '').trim().toLowerCase(),
+      password: (user.password || '').trim(),
+      role: user.role,
+      phone: (user.phone || '').trim(),
+      active: user.active ?? true,
+      cavaloPadrao: user.cavaloPadrao || '',
+      siderPadrao: user.siderPadrao || '',
+      targetKml: user.targetKml !== undefined ? user.targetKml : null,
+      atualizado_em: serverTimestamp(),
+    };
+    await setDoc(docRef, docData, { merge: true });
+    console.log('Usuário salvo e sincronizado no Firestore:', userDocId);
+  } catch (e) {
+    console.error('Erro ao salvar usuário no Firestore:', e);
+  }
+};
+
+/**
+ * Exclui um usuário do Firestore
+ */
+export const excluirUsuarioFirestore = async (userId: string): Promise<void> => {
+  if (!db || !userId) return;
+  try {
+    const docRef = doc(db, COLLECTION_USUARIOS, userId);
+    await deleteDoc(docRef);
+    console.log('Usuário excluído do Firestore:', userId);
+  } catch (e) {
+    console.error('Erro ao excluir usuário no Firestore:', e);
+  }
+};
+
+/**
+ * Sincroniza usuários padrões de fábrica no Firestore se não existirem
+ */
+export const sincronizarUsuariosIniciaisFirestore = async (initialUsers: User[]): Promise<void> => {
+  if (!db) return;
+  try {
+    const usuariosExistentes = await buscarUsuariosFirestore();
+    const mapExistentes = new Map<string, User>();
+    usuariosExistentes.forEach((u) => {
+      const codeKey = (u.code || '').toLowerCase().trim();
+      const emailKey = (u.email || '').toLowerCase().trim();
+      if (codeKey) mapExistentes.set(codeKey, u);
+      if (emailKey) mapExistentes.set(emailKey, u);
+      if (u.id) mapExistentes.set(u.id, u);
+    });
+
+    for (const u of initialUsers) {
+      const codeKey = (u.code || '').toLowerCase().trim();
+      const emailKey = (u.email || '').toLowerCase().trim();
+      if (!mapExistentes.has(codeKey) && !mapExistentes.has(emailKey) && !mapExistentes.has(u.id)) {
+        await salvarUsuarioFirestore(u);
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao sincronizar usuários iniciais no Firestore:', e);
+  }
+};
+
 

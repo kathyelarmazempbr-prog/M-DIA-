@@ -10,6 +10,11 @@ import {
   deslogarDoFirebase,
   escutarSessaoFirebase,
   apagarTodosLancamentos,
+  buscarUsuariosFirestore,
+  ouvirUsuariosEmTempoReal,
+  salvarUsuarioFirestore,
+  excluirUsuarioFirestore,
+  sincronizarUsuariosIniciaisFirestore,
 } from '../lib/firebaseService';
 
 interface AppContextType {
@@ -135,6 +140,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  // Sincroniza e ouve a coleção de usuários no Firestore em tempo real
+  useEffect(() => {
+    sincronizarUsuariosIniciaisFirestore(INITIAL_USERS).catch(console.error);
+
+    const unsubUsers = ouvirUsuariosEmTempoReal((cloudUsers) => {
+      if (cloudUsers && cloudUsers.length > 0) {
+        setUsers((prev) => {
+          const merged = mergeUserLists(INITIAL_USERS, cloudUsers);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(merged));
+          } catch (e) {
+            console.error('Erro ao salvar usuários no localStorage:', e);
+          }
+          return merged;
+        });
+      }
+    });
+
+    return () => {
+      if (typeof unsubUsers === 'function') unsubUsers();
+    };
+  }, []);
+
   // Inscreve no Firestore em tempo real sem restrição para o Gestor
   useEffect(() => {
     if (!currentUser) {
@@ -252,16 +280,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    // Carrega sempre a lista mais atualizada mesclando localStorage e padrões
+    // 1. Consulta diretamente o banco de dados remoto/nuvem (Firestore)
     let currentUsersList = users;
     try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
-      if (saved) {
-        const parsedSaved: User[] = JSON.parse(saved);
-        currentUsersList = mergeUserLists(INITIAL_USERS, parsedSaved);
+      const cloudUsers = await buscarUsuariosFirestore();
+      if (cloudUsers && cloudUsers.length > 0) {
+        currentUsersList = mergeUserLists(INITIAL_USERS, cloudUsers);
+        setUsers(currentUsersList);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(currentUsersList));
+        } catch (e) {}
+      } else {
+        const saved = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
+        if (saved) {
+          const parsedSaved: User[] = JSON.parse(saved);
+          currentUsersList = mergeUserLists(INITIAL_USERS, parsedSaved);
+        }
       }
     } catch (e) {
-      console.error('Erro ao ler usuários do localStorage:', e);
+      console.error('Erro ao consultar usuários no Firestore durante o login:', e);
+      const saved = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
+      if (saved) {
+        try {
+          const parsedSaved: User[] = JSON.parse(saved);
+          currentUsersList = mergeUserLists(INITIAL_USERS, parsedSaved);
+        } catch (err) {}
+      }
     }
 
     // 1. Procurar usuário por email, código ou nome
@@ -427,9 +471,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addUser = (userData: Omit<User, 'id'>): User => {
+    const newUserId = 'usr-' + Date.now();
     const newUser: User = {
       ...userData,
-      id: 'usr-' + Date.now(),
+      id: newUserId,
       code: (userData.code || '').trim(),
       email: (userData.email || '').trim().toLowerCase(),
       password: (userData.password || '').trim(),
@@ -444,6 +489,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return updated;
     });
+
+    // Sincroniza novo usuário na nuvem (Firestore)
+    salvarUsuarioFirestore(newUser).catch((err) => console.error('Erro ao salvar usuário no Firestore:', err));
+
     return newUser;
   };
 
@@ -467,6 +516,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser?.id === cleanedUser.id) {
       setCurrentUser(cleanedUser);
     }
+
+    // Sincroniza usuário editado na nuvem (Firestore)
+    salvarUsuarioFirestore(cleanedUser).catch((err) => console.error('Erro ao atualizar usuário no Firestore:', err));
   };
 
   const deleteUser = (userId: string) => {
@@ -482,6 +534,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser?.id === userId) {
       setCurrentUser(null);
     }
+
+    // Exclui usuário na nuvem (Firestore)
+    excluirUsuarioFirestore(userId).catch((err) => console.error('Erro ao excluir usuário no Firestore:', err));
   };
 
   const resetToDefaultData = () => {
