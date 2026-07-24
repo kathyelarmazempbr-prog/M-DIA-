@@ -7,6 +7,7 @@ import {
   excluirLancamento,
   atualizarLancamento,
   autenticarNoFirebase,
+  criarUsuarioAuthSemDeslogarAdmin,
   deslogarDoFirebase,
   escutarSessaoFirebase,
   apagarTodosLancamentos,
@@ -371,6 +372,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('[BANCO DE DADOS OK] Usuário sincronizado no Firestore com sucesso! ID:', newUser.id);
     } catch (e) {
       console.error('[BANCO DE DADOS ERRO] Erro ao sincronizar usuário no Firestore:', e);
+    }
+
+    // 4. Cadastro no Firebase Auth via Instância Secundária (Mantém sessão do Admin intacta)
+    if (newUser.email && newUser.password) {
+      try {
+        await criarUsuarioAuthSemDeslogarAdmin(newUser.email, newUser.password);
+      } catch (authErr) {
+        console.warn('Aviso ao registrar no Firebase Auth:', authErr);
+      }
     }
 
     return newUser;

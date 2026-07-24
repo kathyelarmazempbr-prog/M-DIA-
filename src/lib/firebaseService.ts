@@ -1,3 +1,4 @@
+import { initializeApp, getApps } from 'firebase/app';
 import {
   collection,
   doc,
@@ -19,10 +20,11 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  getAuth,
   User as FirebaseUser,
 } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
-import { db, storage, auth } from './firebase';
+import { db, storage, auth, firebaseConfig } from './firebase';
 import { Trip, User } from '../types';
 
 // Coleções principais do Firestore
@@ -330,6 +332,40 @@ export const uploadComprovante = async (
 /**
  * 5. AUTENTICAÇÃO FIREBASE AUTH
  */
+
+/**
+ * Cria um novo usuário no Firebase Auth através de uma instância secundária.
+ * Isso GARANTE que a sessão ativa do Administrador/Dev NÃO seja deslogada na interface principal.
+ */
+export const criarUsuarioAuthSemDeslogarAdmin = async (
+  email: string,
+  pass: string
+): Promise<FirebaseUser | null> => {
+  console.log('[FIREBASE AUTH SECUNDÁRIO] Cadastrando credencial no Auth sem deslogar Admin:', email);
+  try {
+    const secondaryAppName = 'SecondaryAuthApp';
+    let secondaryApp = getApps().find((a) => a.name === secondaryAppName);
+    if (!secondaryApp) {
+      secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+    }
+    const secondaryAuth = getAuth(secondaryApp);
+    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
+    const newAuthUser = userCredential.user;
+
+    // Efetua logout imediato na instância secundária para limpar a sessão local do novo usuário
+    await signOut(secondaryAuth);
+    console.log('[FIREBASE AUTH SECUNDÁRIO OK] Credencial cadastrada com sucesso! UID:', newAuthUser.uid);
+    return newAuthUser;
+  } catch (err: any) {
+    if (err?.code === 'auth/email-already-in-use') {
+      console.log('[FIREBASE AUTH SECUNDÁRIO] E-mail já cadastrado no Auth:', email);
+    } else {
+      console.warn('[FIREBASE AUTH SECUNDÁRIO AVISO] Erro ao registrar credencial:', err?.message || err);
+    }
+    return null;
+  }
+};
+
 export const autenticarNoFirebase = async (email: string, pass: string): Promise<FirebaseUser | null> => {
   console.log('Tentando conectar ao serviço de autenticação do Firebase...');
   if (!auth) {
@@ -344,20 +380,6 @@ export const autenticarNoFirebase = async (email: string, pass: string): Promise
       return user;
     }
   } catch (error: any) {
-    // Se a conta não existir no Firebase Auth, tenta criar uma nova conta para autenticação transparente
-    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-email') {
-      try {
-        const safeEmail = email.includes('@') ? email : `${email.toLowerCase()}@mediaplus.com.br`;
-        const createPromise = createUserWithEmailAndPassword(auth, safeEmail, pass || '123456').then((res) => res.user);
-        const newCredentialUser = await withTimeout(createPromise, 3000, null);
-        if (newCredentialUser) {
-          console.log('Novo usuário registrado no Firebase Auth com sucesso!');
-          return newCredentialUser;
-        }
-      } catch (createErr) {
-        console.warn('Erro ao criar usuário no Firebase Auth:', createErr);
-      }
-    }
     console.warn('Erro ao autenticar no Firebase Auth (fallback local ativo):', error);
   }
   return null;

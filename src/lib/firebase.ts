@@ -4,7 +4,7 @@ import { getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 
 // Configuração do Firebase incorporada para funcionamento completo no GitHub Pages e local
-const firebaseConfig = {
+export const firebaseConfig = {
   projectId: "media-plus-3ce69",
   appId: "1:935592312397:web:03f4015be370c3d46ea604",
   apiKey: "AIzaSyA7umu8vftacc6Rh_JbiN-tiNL3rghjjjM",
