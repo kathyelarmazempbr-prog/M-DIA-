@@ -142,7 +142,7 @@ export const RankingsView: React.FC = () => {
               <div className="mt-3">
                 <span className="text-2xl font-black text-emerald-700">{top1?.avgKml.toFixed(2)}</span>
                 <span className="text-xs text-emerald-800 ml-1">km/l</span>
-                <p className="text-[10px] text-emerald-600 font-bold mt-0.5 uppercase tracking-wider">Destaque da Frota</p>
+                <p className="text-[10px] text-emerald-600 font-bold mt-0.5 uppercase tracking-wider">DESTAQUE DO TIME</p>
               </div>
             </div>
 
@@ -252,7 +252,6 @@ export const RankingsView: React.FC = () => {
                 <tr>
                   <th className="py-3 px-4">Posição</th>
                   <th className="py-3 px-4">Motorista</th>
-                  <th className="py-3 px-4 text-center">Puxadas</th>
                   <th className="py-3 px-4 text-center">Melhor Média</th>
                   <th className="py-3 px-4 text-right">Média Geral</th>
                 </tr>
@@ -266,9 +265,6 @@ export const RankingsView: React.FC = () => {
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="font-bold text-slate-800">{item.driverName}</div>
                       <div className="text-[10px] text-slate-400">{item.driverCode}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-semibold text-slate-600">
-                      {item.tripsCount}
                     </td>
                     <td className="py-3.5 px-4 text-center text-amber-600 font-bold">
                       {item.bestKml.toFixed(2)} km/l
@@ -288,7 +284,6 @@ export const RankingsView: React.FC = () => {
                 <tr>
                   <th className="py-3 px-4">Posição</th>
                   <th className="py-3 px-4">Placa Carreta</th>
-                  <th className="py-3 px-4 text-center">Total de Viagens</th>
                   <th className="py-3 px-4 text-center">Recorde Registrado</th>
                   <th className="py-3 px-4 text-right">Média Geral</th>
                 </tr>
@@ -298,7 +293,6 @@ export const RankingsView: React.FC = () => {
                   <tr key={item.plate} className="hover:bg-slate-50 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-slate-500">{idx + 1}º</td>
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{item.plate}</td>
-                    <td className="py-3.5 px-4 text-center">{item.tripsCount}</td>
                     <td className="py-3.5 px-4 text-center text-amber-600 font-bold">
                       {item.bestKml.toFixed(2)} km/l
                     </td>

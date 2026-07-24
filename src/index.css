@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+/* Force webkit calendar picker indicator icon to be visible on all mobile browsers */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  display: block !important;
+  opacity: 0.85 !important;
+  cursor: pointer;
+  padding: 0px 2px;
+  margin-left: 4px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1 !important;
+}
+
+/* Ensure mobile date inputs have consistent height and touch targets */
+input[type="date"] {
+  min-height: 2.35rem;
+}

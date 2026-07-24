@@ -131,12 +131,12 @@ export const TripHistory: React.FC = () => {
             <select
               value={filterCavalo}
               onChange={(e) => setFilterCavalo(e.target.value)}
-              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-800 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
+              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-800 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors font-medium"
             >
-              <option value="">Todas as Placas Cavalo</option>
+              <option value="">Todas as Placas</option>
               {cavaloPlates.map((p) => (
                 <option key={p} value={p}>
-                  Cavalo {p}
+                  {p}
                 </option>
               ))}
             </select>
@@ -233,25 +233,26 @@ export const TripHistory: React.FC = () => {
               </div>
 
               {/* Notes & Photo Attachment button */}
-              {(trip.notes || trip.proofUrl) && (
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                  {trip.notes ? (
-                    <p className="text-slate-500 italic line-clamp-1 max-w-[70%]">
-                      "{trip.notes}"
-                    </p>
-                  ) : <div />}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                {trip.notes ? (
+                  <p className="text-slate-500 italic line-clamp-1 max-w-[65%]">
+                    "{trip.notes}"
+                  </p>
+                ) : <div />}
 
-                  {trip.proofUrl && (
-                    <button
-                      onClick={() => setSelectedProofUrl(trip.proofUrl || null)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-xl border border-emerald-200 transition-colors"
-                    >
-                      <ImageIcon className="h-3.5 w-3.5" />
-                      <span>Ver Comprovante</span>
-                    </button>
-                  )}
-                </div>
-              )}
+                <button
+                  onClick={() => setSelectedProofUrl(trip.proofUrl || '')}
+                  className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-xl border transition-colors ${
+                    trip.proofUrl
+                      ? 'text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
+                      : 'text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 border-slate-200'
+                  }`}
+                  title={trip.proofUrl ? 'Visualizar Foto do Comprovante' : 'Nenhum comprovante anexado'}
+                >
+                  <ImageIcon className="h-3.5 w-3.5" />
+                  <span>{trip.proofUrl ? 'Ver Comprovante' : 'Comprovante'}</span>
+                </button>
+              </div>
             </div>
           ))}
         </div>

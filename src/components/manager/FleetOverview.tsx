@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 export const FleetOverview: React.FC = () => {
-  const { trips, users, updateTrip, deleteTrip, clearAllTrips, getPerformanceColor } = useApp();
+  const { trips, users, currentUser, updateTrip, deleteTrip, clearAllTrips, getPerformanceColor } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDriverId, setSelectedDriverId] = useState('');
@@ -224,14 +224,16 @@ export const FleetOverview: React.FC = () => {
                 <span>Limpar Filtros</span>
               </button>
             )}
-            <button
-              onClick={() => setShowClearModal(true)}
-              className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs"
-              title="Apagar permanentemente todas as viagens do banco de dados"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>Zerar Registros (Reset)</span>
-            </button>
+            {currentUser?.role === 'developer' && (
+              <button
+                onClick={() => setShowClearModal(true)}
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs"
+                title="Apagar permanentemente todas as viagens do banco de dados"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Zerar Histórico</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -269,9 +271,9 @@ export const FleetOverview: React.FC = () => {
             <select
               value={selectedCavalo}
               onChange={(e) => setSelectedCavalo(e.target.value)}
-              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-800 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
+              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-800 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors font-medium"
             >
-              <option value="">Todos os Cavalos</option>
+              <option value="">Todas as Placas</option>
               {cavaloPlates.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -325,12 +327,14 @@ export const FleetOverview: React.FC = () => {
                 <tr>
                   <th className="py-3 px-4">Data</th>
                   <th className="py-3 px-4">Motorista</th>
-                  <th className="py-3 px-4">Origem ➔ Destino</th>
+                  <th className="py-3 px-4">Destino</th>
                   <th className="py-3 px-4">Cavalo</th>
                   <th className="py-3 px-4">Sider</th>
                   <th className="py-3 px-4 text-center">Média</th>
                   <th className="py-3 px-4 text-center">Comprovante</th>
-                  <th className="py-3 px-4 text-right">Ações</th>
+                  {currentUser?.role === 'developer' && (
+                    <th className="py-3 px-4 text-right">Ações</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -343,10 +347,8 @@ export const FleetOverview: React.FC = () => {
                       <div className="font-semibold text-slate-800">{trip.driverName}</div>
                       <div className="text-[10px] text-slate-400">{trip.driverCode}</div>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span className="text-slate-700 font-medium">{trip.originName}</span>
-                      <span className="mx-1 text-slate-400">➔</span>
-                      <span className="text-emerald-700 font-semibold">{trip.destinationName}</span>
+                    <td className="py-3.5 px-4 font-semibold text-emerald-700">
+                      {trip.destinationName}
                     </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
                       {trip.cavaloPlate}
@@ -358,40 +360,42 @@ export const FleetOverview: React.FC = () => {
                       <KmlBadge kml={trip.kml} size="sm" showLabel />
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      {trip.proofUrl ? (
-                        <button
-                          onClick={() => setSelectedProofUrl(trip.proofUrl || null)}
-                          className="p-1.5 rounded-lg bg-slate-100 text-emerald-700 hover:bg-emerald-50 transition-colors inline-flex"
-                          title="Visualizar Comprovante"
-                        >
-                          <ImageIcon className="h-4 w-4" />
-                        </button>
-                      ) : (
-                        <span className="text-slate-300 text-[10px]">—</span>
-                      )}
+                      <button
+                        onClick={() => setSelectedProofUrl(trip.proofUrl || '')}
+                        className={`p-1.5 rounded-lg transition-colors inline-flex ${
+                          trip.proofUrl
+                            ? 'bg-slate-100 text-emerald-700 hover:bg-emerald-50'
+                            : 'bg-slate-50 text-slate-300 hover:bg-slate-100 hover:text-slate-500'
+                        }`}
+                        title={trip.proofUrl ? 'Visualizar Comprovante' : 'Nenhum comprovante anexado'}
+                      >
+                        <ImageIcon className="h-4 w-4" />
+                      </button>
                     </td>
-                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => setEditingTrip(trip)}
-                          className="p-1.5 rounded-lg bg-slate-100 text-amber-600 hover:bg-amber-50 transition-colors"
-                          title="Editar/Corrigir Lançamento"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm(`Deseja realmente excluir a puxada do motorista ${trip.driverName}?`)) {
-                              deleteTrip(trip.id);
-                            }
-                          }}
-                          className="p-1.5 rounded-lg bg-slate-100 text-rose-600 hover:bg-rose-50 transition-colors"
-                          title="Excluir Lançamento"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                    {currentUser?.role === 'developer' && (
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setEditingTrip(trip)}
+                            className="p-1.5 rounded-lg bg-slate-100 text-amber-600 hover:bg-amber-50 transition-colors"
+                            title="Editar/Corrigir Lançamento"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm(`Deseja realmente excluir a puxada do motorista ${trip.driverName}?`)) {
+                                deleteTrip(trip.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg bg-slate-100 text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Excluir Lançamento"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

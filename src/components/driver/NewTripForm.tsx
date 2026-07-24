@@ -40,9 +40,9 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
   const [date, setDate] = useState(todayStr);
   const [selectedDriverCode, setSelectedDriverCode] = useState(initialDriverCode);
 
-  // Destino da viagem (fábricas)
-  const [destinationCode, setDestinationCode] = useState('950');
-  const [destinationCustom, setDestinationCustom] = useState('ITAPISSUMA-PE');
+  // Destino da viagem (fábricas) - em branco por padrão para digitação/seleção limpa
+  const [destinationCode, setDestinationCode] = useState('');
+  const [destinationCustom, setDestinationCustom] = useState('');
 
   // Equipamentos - em branco por padrão conforme solicitado
   const [cavaloPlate, setCavaloPlate] = useState('');
@@ -66,6 +66,8 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
   const handleDestinationSelect = (code: string) => {
     setDestinationCode(code);
     if (code === 'OUT') {
+      setDestinationCustom('');
+    } else if (!code) {
       setDestinationCustom('');
     } else {
       const dest = OFFICIAL_DESTINATIONS.find((d) => d.code === code);
@@ -115,7 +117,7 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
       siderPlate: siderPlate.toUpperCase().trim(),
       kml: kmlNum,
       notes,
-      proofUrl: proofImage || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=400',
+      proofUrl: proofImage || '',
     });
 
     setSubmitted(true);
@@ -215,31 +217,33 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
                 <select
                   value={destinationCode}
                   onChange={(e) => handleDestinationSelect(e.target.value)}
+                  required
                   className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
                 >
+                  <option value="">Selecione o Destino...</option>
                   {OFFICIAL_DESTINATIONS.map((dest) => (
                     <option key={`dest-${dest.code}`} value={dest.code}>
-                      COD {dest.code} - {dest.name}
+                      {dest.name}
                     </option>
                   ))}
-                  <option value="OUT">Outro Destino...</option>
+                  <option value="OUT">Outro Destino (Digitação Livre)...</option>
                 </select>
               </div>
             </div>
 
-            {/* Campo de texto livre caso selecione "Outro Destino..." */}
+            {/* Campo de texto livre caso selecione "Outro Destino (Digitação Livre)..." */}
             {destinationCode === 'OUT' && (
               <div className="pt-1">
                 <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                  Nome do Destino Personalizado *
+                  Nome do Destino / Fábrica *
                 </label>
                 <input
                   type="text"
                   value={destinationCustom}
                   onChange={(e) => setDestinationCustom(e.target.value)}
-                  placeholder="Ex: Unidade CD Vitória - ES"
+                  placeholder="Ex: ITAPISSUMA-PE, CABEDELO-PB, etc."
                   required
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
+                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors font-medium"
                 />
               </div>
             )}
