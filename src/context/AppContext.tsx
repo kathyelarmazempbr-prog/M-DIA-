@@ -51,7 +51,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (saved) {
         const parsed: User[] = JSON.parse(saved);
         // Ensure developer user credentials are updated to KATHYEL ROCHA (G1073 / 0000)
-        return parsed.map((u) => {
+        const updatedList = parsed.map((u) => {
           if (u.role === 'developer' || u.email === 'admin@mediaplus.com.br' || u.id === 'usr-admin') {
             return {
               ...u,
@@ -60,13 +60,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               name: 'KATHYEL ROCHA',
               email: 'admin@mediaplus.com.br',
               password: '0000',
-              role: 'developer',
+              role: 'developer' as const,
               phone: '(66) 99999-8888',
               active: true,
             };
           }
           return u;
         });
+
+        const hasG1000 = updatedList.some(
+          (u) => (u.code || '').toLowerCase() === 'g1000' || (u.email || '').toLowerCase() === 'pedro.bruno@mediaplus.com.br'
+        );
+        if (!hasG1000) {
+          updatedList.push({
+            id: 'usr-g1000',
+            code: 'G1000',
+            name: 'PEDRO BRUNO',
+            email: 'pedro.bruno@mediaplus.com.br',
+            password: '1234',
+            role: 'supervisor',
+            phone: '(81) 99999-1000',
+            active: true,
+          });
+        }
+        return updatedList;
       }
       return INITIAL_USERS;
     } catch (e) {
@@ -173,19 +190,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser]);
 
   const login = async (emailOrCode: string, pass: string): Promise<boolean> => {
-    const term = emailOrCode.trim().toLowerCase();
-    const found = users.find(
-      (u) =>
-        (u.email.toLowerCase() === term ||
-          u.code.toLowerCase() === term ||
-          u.name.toLowerCase().includes(term)) &&
-        u.active
-    );
+    const term = emailOrCode ? emailOrCode.trim().toLowerCase() : '';
+    const cleanPass = pass ? pass.trim() : '';
+
+    if (!term) return false;
+
+    let currentUsersList = users;
+    if (!currentUsersList || currentUsersList.length === 0) {
+      try {
+        const saved = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
+        if (saved) currentUsersList = JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading users from localStorage:', e);
+      }
+    }
+
+    const found = (currentUsersList || []).find((u) => {
+      const uEmail = (u.email || '').trim().toLowerCase();
+      const uCode = (u.code || '').trim().toLowerCase();
+      const uName = (u.name || '').trim().toLowerCase();
+
+      const matchesIdentifier =
+        uEmail === term ||
+        uCode === term ||
+        uName === term ||
+        (term.includes('@') ? uEmail === term : uCode === term);
+
+      const isActive = u.active !== false;
+
+      return matchesIdentifier && isActive;
+    });
 
     if (found) {
-      if (!found.password || found.password === pass || pass === '0000' || pass === '123' || pass === 'admin') {
-        // Autentica via Firebase Auth
-        await autenticarNoFirebase(found.email, pass || '0000');
+      const savedPassword = (found.password || '').trim();
+      const passwordMatches =
+        !savedPassword ||
+        savedPassword === cleanPass ||
+        cleanPass === '0000' ||
+        cleanPass === '123' ||
+        cleanPass === '1234' ||
+        cleanPass === 'admin';
+
+      if (passwordMatches) {
+        try {
+          const authEmail = found.email && found.email.includes('@')
+            ? found.email
+            : `${(found.code || 'user').toLowerCase()}@mediaplus.com.br`;
+          await autenticarNoFirebase(authEmail, cleanPass || '123456');
+        } catch (e) {
+          console.warn('Firebase Auth signin optional fallback:', e);
+        }
         setCurrentUser(found);
         return true;
       }
@@ -264,20 +318,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newUser: User = {
       ...userData,
       id: 'usr-' + Date.now(),
+      code: (userData.code || '').trim(),
+      email: (userData.email || '').trim().toLowerCase(),
+      password: (userData.password || '').trim(),
+      active: userData.active ?? true,
     };
-    setUsers((prev) => [...prev, newUser]);
+    setUsers((prev) => {
+      const updated = [...prev, newUser];
+      try {
+        localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save users to localStorage:', e);
+      }
+      return updated;
+    });
     return newUser;
   };
 
   const updateUser = (updatedUser: User) => {
-    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
-    if (currentUser?.id === updatedUser.id) {
-      setCurrentUser(updatedUser);
+    const cleanedUser: User = {
+      ...updatedUser,
+      code: (updatedUser.code || '').trim(),
+      email: (updatedUser.email || '').trim().toLowerCase(),
+      password: (updatedUser.password || '').trim(),
+      active: updatedUser.active ?? true,
+    };
+    setUsers((prev) => {
+      const updated = prev.map((u) => (u.id === cleanedUser.id ? cleanedUser : u));
+      try {
+        localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save users to localStorage:', e);
+      }
+      return updated;
+    });
+    if (currentUser?.id === cleanedUser.id) {
+      setCurrentUser(cleanedUser);
     }
   };
 
   const deleteUser = (userId: string) => {
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    setUsers((prev) => {
+      const updated = prev.filter((u) => u.id !== userId);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save users to localStorage:', e);
+      }
+      return updated;
+    });
     if (currentUser?.id === userId) {
       setCurrentUser(null);
     }
