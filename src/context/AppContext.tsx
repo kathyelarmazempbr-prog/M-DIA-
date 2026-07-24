@@ -334,7 +334,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addUser = (userData: Omit<User, 'id'>): User => {
-    console.log('Tentando conectar ao banco para cadastrar novo usuário:', userData.name || userData.code);
+    console.log('[DIAGNOSTICO CADASTRO] Tentando cadastrar e salvar usuário:', userData.name || userData.code);
     const newUserId = 'usr-' + Date.now();
     const newUser: User = {
       ...userData,
@@ -345,22 +345,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active: userData.active ?? true,
     };
 
-    setUsers((prev) => [...prev, newUser]);
+    // 1. Atualização do Estado React (Força Re-render na Interface)
+    setUsers((prev) => {
+      const exists = prev.some((u) => u.id === newUser.id || (u.code && u.code.toLowerCase() === newUser.code.toLowerCase()));
+      if (exists) {
+        return prev.map((u) => (u.code.toLowerCase() === newUser.code.toLowerCase() ? newUser : u));
+      }
+      return [...prev, newUser];
+    });
 
-    // Sincroniza novo usuário na nuvem (Firestore) com try/catch
+    // 2. Persistência em LocalStorage (Fallback Local)
+    try {
+      const storedLocalUsers = localStorage.getItem('app_users');
+      const localList: User[] = storedLocalUsers ? JSON.parse(storedLocalUsers) : [];
+      const updatedLocalList = [...localList.filter((u) => u.id !== newUser.id && u.code.toLowerCase() !== newUser.code.toLowerCase()), newUser];
+      localStorage.setItem('app_users', JSON.stringify(updatedLocalList));
+      console.log('[LOCAL STORAGE] Usuário salvo no localStorage com sucesso.');
+    } catch (e) {
+      console.warn('[LOCAL STORAGE WARNING] Falha ao gravar no localStorage:', e);
+    }
+
+    // 3. Sincronização em Nuvem (Firestore)
     try {
       salvarUsuarioFirestore(newUser)
-        .then(() => console.log('Usuário salvo com sucesso no banco de dados!'))
-        .catch((err) => console.error('Erro ao salvar usuário no banco de dados:', err));
+        .then(() => console.log('[BANCO DE DADOS OK] Usuário sincronizado no Firestore com sucesso! ID:', newUser.id))
+        .catch((err) => console.error('[BANCO DE DADOS ERRO] Erro ao sincronizar usuário no Firestore:', err));
     } catch (e) {
-      console.error('Erro ao salvar usuário no banco de dados:', e);
+      console.error('[BANCO DE DADOS EXCEÇÃO] Erro ao executar salvarUsuarioFirestore:', e);
     }
 
     return newUser;
   };
 
   const updateUser = (updatedUser: User) => {
-    console.log('Tentando conectar ao banco para atualizar usuário:', updatedUser.name || updatedUser.code);
+    console.log('[DIAGNOSTICO EDIÇÃO] Tentando atualizar usuário:', updatedUser.name || updatedUser.code);
     const cleanedUser: User = {
       ...updatedUser,
       code: (updatedUser.code || '').trim(),
@@ -369,18 +387,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active: updatedUser.active ?? true,
     };
 
-    setUsers((prev) => prev.map((u) => (u.id === cleanedUser.id ? cleanedUser : u)));
+    // 1. Atualização do Estado React (Força Re-render na Interface)
+    setUsers((prev) => prev.map((u) => (u.id === cleanedUser.id || (u.code && u.code.toLowerCase() === cleanedUser.code.toLowerCase()) ? cleanedUser : u)));
     if (currentUser?.id === cleanedUser.id) {
       setCurrentUser(cleanedUser);
     }
 
-    // Sincroniza usuário editado na nuvem (Firestore)
+    // 2. Persistência no LocalStorage (Fallback Local)
+    try {
+      const storedLocalUsers = localStorage.getItem('app_users');
+      const localList: User[] = storedLocalUsers ? JSON.parse(storedLocalUsers) : [];
+      const updatedLocalList = localList.map((u) => (u.id === cleanedUser.id || u.code.toLowerCase() === cleanedUser.code.toLowerCase() ? cleanedUser : u));
+      localStorage.setItem('app_users', JSON.stringify(updatedLocalList));
+      console.log('[LOCAL STORAGE] Usuário atualizado no localStorage com sucesso.');
+    } catch (e) {
+      console.warn('[LOCAL STORAGE WARNING] Falha ao atualizar localStorage:', e);
+    }
+
+    // 3. Sincronização em Nuvem (Firestore)
     try {
       salvarUsuarioFirestore(cleanedUser)
-        .then(() => console.log('Usuário salvo com sucesso no banco de dados!'))
-        .catch((err) => console.error('Erro ao atualizar usuário no banco de dados:', err));
+        .then(() => console.log('[BANCO DE DADOS OK] Usuário atualizado no Firestore com sucesso!'))
+        .catch((err) => console.error('[BANCO DE DADOS ERRO] Erro ao atualizar usuário no Firestore:', err));
     } catch (e) {
-      console.error('Erro ao atualizar usuário no banco de dados:', e);
+      console.error('[BANCO DE DADOS EXCEÇÃO] Erro ao atualizar usuário:', e);
     }
   };
 
