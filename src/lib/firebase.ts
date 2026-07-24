@@ -18,6 +18,7 @@ try {
         : getFirestore(app);
     storageInstance = getStorage(app);
     authInstance = getAuth(app);
+    console.log(`[FIREBASE CONECTADO] Projeto ativo: ${firebaseConfig.projectId}`);
   }
 } catch (err) {
   console.warn("Erro ao conectar ao Firebase (modo offline ativado):", err);
