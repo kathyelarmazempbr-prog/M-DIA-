@@ -44,51 +44,71 @@ const LOCAL_STORAGE_USERS_KEY = 'media_plus_users_v2';
 const LOCAL_STORAGE_TRIPS_KEY = 'media_plus_trips_v2';
 const LOCAL_STORAGE_AUTH_KEY = 'media_plus_auth_user_id_v2';
 
+const mergeUserLists = (initial: User[], saved: User[]): User[] => {
+  const map = new Map<string, User>();
+
+  // 1. Inserir usuários iniciais padrões
+  initial.forEach((u) => {
+    const key = u.id || (u.code ? u.code.toLowerCase().trim() : u.email.toLowerCase().trim());
+    map.set(key, u);
+  });
+
+  // 2. Mesclar/sobrecrever com usuários salvos no localStorage
+  saved.forEach((u) => {
+    const key = u.id || (u.code ? u.code.toLowerCase().trim() : u.email.toLowerCase().trim());
+    map.set(key, u);
+  });
+
+  // 3. Garantir credenciais do Desenvolvedor KATHYEL ROCHA (G1073 / 0000)
+  const merged = Array.from(map.values()).map((u) => {
+    if (u.role === 'developer' || u.email === 'admin@mediaplus.com.br' || u.id === 'usr-admin') {
+      return {
+        ...u,
+        id: 'usr-admin',
+        code: 'G1073',
+        name: 'KATHYEL ROCHA',
+        email: 'admin@mediaplus.com.br',
+        password: '0000',
+        role: 'developer' as const,
+        phone: '(66) 99999-8888',
+        active: true,
+      };
+    }
+    return u;
+  });
+
+  // 4. Garantir presença do Supervisor PEDRO BRUNO (G1000 / 1234)
+  const hasG1000 = merged.some(
+    (u) => (u.code || '').toLowerCase().trim() === 'g1000' || (u.email || '').toLowerCase().trim() === 'pedro.bruno@mediaplus.com.br'
+  );
+  if (!hasG1000) {
+    merged.push({
+      id: 'usr-g1000',
+      code: 'G1000',
+      name: 'PEDRO BRUNO',
+      email: 'pedro.bruno@mediaplus.com.br',
+      password: '1234',
+      role: 'supervisor',
+      phone: '(81) 99999-1000',
+      active: true,
+    });
+  }
+
+  return merged;
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
       if (saved) {
         const parsed: User[] = JSON.parse(saved);
-        // Ensure developer user credentials are updated to KATHYEL ROCHA (G1073 / 0000)
-        const updatedList = parsed.map((u) => {
-          if (u.role === 'developer' || u.email === 'admin@mediaplus.com.br' || u.id === 'usr-admin') {
-            return {
-              ...u,
-              id: 'usr-admin',
-              code: 'G1073',
-              name: 'KATHYEL ROCHA',
-              email: 'admin@mediaplus.com.br',
-              password: '0000',
-              role: 'developer' as const,
-              phone: '(66) 99999-8888',
-              active: true,
-            };
-          }
-          return u;
-        });
-
-        const hasG1000 = updatedList.some(
-          (u) => (u.code || '').toLowerCase() === 'g1000' || (u.email || '').toLowerCase() === 'pedro.bruno@mediaplus.com.br'
-        );
-        if (!hasG1000) {
-          updatedList.push({
-            id: 'usr-g1000',
-            code: 'G1000',
-            name: 'PEDRO BRUNO',
-            email: 'pedro.bruno@mediaplus.com.br',
-            password: '1234',
-            role: 'supervisor',
-            phone: '(81) 99999-1000',
-            active: true,
-          });
-        }
-        return updatedList;
+        return mergeUserLists(INITIAL_USERS, parsed);
       }
-      return INITIAL_USERS;
+      return mergeUserLists(INITIAL_USERS, []);
     } catch (e) {
       console.error('Failed to load users from localStorage', e);
-      return INITIAL_USERS;
+      return mergeUserLists(INITIAL_USERS, []);
     }
   });
 
@@ -193,58 +213,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const term = emailOrCode ? emailOrCode.trim().toLowerCase() : '';
     const cleanPass = pass ? pass.trim() : '';
 
-    if (!term) return false;
-
-    let currentUsersList = users;
-    if (!currentUsersList || currentUsersList.length === 0) {
-      try {
-        const saved = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
-        if (saved) currentUsersList = JSON.parse(saved);
-      } catch (e) {
-        console.error('Error loading users from localStorage:', e);
-      }
+    if (!term) {
+      console.warn('[LOGIN FAIL] E-mail ou código de motorista em branco.');
+      return false;
     }
 
-    const found = (currentUsersList || []).find((u) => {
+    // Carrega sempre a lista mais atualizada mesclando localStorage e padrões
+    let currentUsersList = users;
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
+      if (saved) {
+        const parsedSaved: User[] = JSON.parse(saved);
+        currentUsersList = mergeUserLists(INITIAL_USERS, parsedSaved);
+      }
+    } catch (e) {
+      console.error('Erro ao ler usuários do localStorage:', e);
+    }
+
+    // 1. Procurar usuário por email, código ou nome
+    const foundUser = (currentUsersList || []).find((u) => {
       const uEmail = (u.email || '').trim().toLowerCase();
       const uCode = (u.code || '').trim().toLowerCase();
       const uName = (u.name || '').trim().toLowerCase();
 
-      const matchesIdentifier =
+      return (
         uEmail === term ||
         uCode === term ||
         uName === term ||
-        (term.includes('@') ? uEmail === term : uCode === term);
-
-      const isActive = u.active !== false;
-
-      return matchesIdentifier && isActive;
+        (term.includes('@') ? uEmail === term : uCode === term)
+      );
     });
 
-    if (found) {
-      const savedPassword = (found.password || '').trim();
-      const passwordMatches =
-        !savedPassword ||
-        savedPassword === cleanPass ||
-        cleanPass === '0000' ||
-        cleanPass === '123' ||
-        cleanPass === '1234' ||
-        cleanPass === 'admin';
-
-      if (passwordMatches) {
-        try {
-          const authEmail = found.email && found.email.includes('@')
-            ? found.email
-            : `${(found.code || 'user').toLowerCase()}@mediaplus.com.br`;
-          await autenticarNoFirebase(authEmail, cleanPass || '123456');
-        } catch (e) {
-          console.warn('Firebase Auth signin optional fallback:', e);
-        }
-        setCurrentUser(found);
-        return true;
-      }
+    if (!foundUser) {
+      console.warn(`[LOGIN FAIL] Usuário não encontrado para o identificador digitado: "${term}"`);
+      return false;
     }
-    return false;
+
+    // 2. Verificar se o usuário está ativo
+    if (foundUser.active === false) {
+      console.warn(`[LOGIN FAIL] Usuário inativo no sistema: ${foundUser.name} (${foundUser.code || foundUser.email})`);
+      return false;
+    }
+
+    // 3. Validar a senha
+    const savedPassword = (foundUser.password || '').trim();
+    const passwordMatches =
+      !savedPassword ||
+      savedPassword === cleanPass ||
+      cleanPass === '0000' ||
+      cleanPass === '123' ||
+      cleanPass === '1234' ||
+      cleanPass === 'admin';
+
+    if (!passwordMatches) {
+      console.warn(`[LOGIN FAIL] Senha incorreta informada para o usuário: ${foundUser.name}`);
+      return false;
+    }
+
+    console.log(`[LOGIN SUCCESS] Acesso liberado com sucesso para: ${foundUser.name} (${foundUser.role.toUpperCase()})`);
+
+    try {
+      const authEmail = foundUser.email && foundUser.email.includes('@')
+        ? foundUser.email
+        : `${(foundUser.code || 'user').toLowerCase()}@mediaplus.com.br`;
+      await autenticarNoFirebase(authEmail, cleanPass || '123456');
+    } catch (e) {
+      console.warn('Firebase Auth signin optional fallback:', e);
+    }
+
+    setCurrentUser(foundUser);
+    return true;
   };
 
   const loginAsUser = (user: User) => {
