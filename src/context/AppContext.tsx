@@ -31,7 +31,7 @@ interface AppContextType {
   deleteTrip: (tripId: string) => void;
   addUser: (newUser: Omit<User, 'id'>) => Promise<User>;
   updateUser: (updatedUser: User) => Promise<User>;
-  deleteUser: (userId: string) => void;
+  deleteUser: (userId: string) => Promise<void>;
   resetToDefaultData: () => void;
   clearAllTrips: () => Promise<void>;
   getPerformanceLevel: (kml: number) => 'excellent' | 'regular' | 'low';
@@ -419,20 +419,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return cleanedUser;
   };
 
-  const deleteUser = (userId: string) => {
-    console.log('Tentando conectar ao banco para excluir usuário:', userId);
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
+  const deleteUser = async (userId: string): Promise<void> => {
+    console.log('[DELETE USER] Excluindo usuário por ID:', userId);
+    if (!userId) return;
+
+    // 1. Atualização do estado local por ID único
+    setUsers((prevUsers) => prevUsers.filter((u) => u.id !== userId));
+
     if (currentUser?.id === userId) {
       setCurrentUser(null);
     }
 
-    // Exclui usuário na nuvem (Firestore)
+    // 2. Atualização do localStorage
     try {
-      excluirUsuarioFirestore(userId)
-        .then(() => console.log('Usuário excluído com sucesso do banco de dados!'))
-        .catch((err) => console.error('Erro ao excluir usuário no banco de dados:', err));
+      const storedLocalUsers = localStorage.getItem('app_users');
+      if (storedLocalUsers) {
+        const localList: User[] = JSON.parse(storedLocalUsers);
+        const updatedList = localList.filter((u) => u.id !== userId);
+        localStorage.setItem('app_users', JSON.stringify(updatedList));
+      }
     } catch (e) {
-      console.error('Erro ao excluir usuário no banco de dados:', e);
+      console.warn('[LOCAL STORAGE WARNING] Falha ao atualizar localStorage:', e);
+    }
+
+    // 3. Exclusão na nuvem (Firestore)
+    try {
+      await excluirUsuarioFirestore(userId);
+      console.log('[DELETE USER OK] Usuário excluído com sucesso do banco de dados!');
+    } catch (e) {
+      console.error('[DELETE USER ERRO] Erro ao excluir usuário no banco de dados:', e);
+      throw e;
     }
   };
 

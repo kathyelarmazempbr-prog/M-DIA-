@@ -554,34 +554,15 @@ export const salvarUsuarioFirestore = async (user: User): Promise<void> => {
  * Exclui um usuário do Firestore
  */
 export const excluirUsuarioFirestore = async (userId: string): Promise<void> => {
-  console.log('Tentando conectar ao banco de dados para excluir usuário:', userId);
+  console.log('[FIREBASE CRUD] Excluindo usuário do Firestore pelo ID:', userId);
   if (!db || !userId) return;
   try {
-    const deleteOp = async () => {
-      const docRef = doc(db, COLLECTION_USUARIOS, userId);
-      await deleteDoc(docRef);
-
-      // Remove qualquer duplicado do mesmo id ou do usuário excluído na coleção
-      const colRef = collection(db, COLLECTION_USUARIOS);
-      const snapshot = await getDocs(colRef);
-      for (const d of snapshot.docs) {
-        const data = d.data();
-        if (
-          d.id === userId ||
-          data.id === userId ||
-          data.code?.toLowerCase().trim() === 'g1000' ||
-          data.name?.toUpperCase().trim() === 'PEDRO BRUNO' ||
-          data.email?.toLowerCase().trim() === 'pedro.bruno@mediaplus.com.br'
-        ) {
-          await deleteDoc(doc(db, COLLECTION_USUARIOS, d.id));
-        }
-      }
-    };
-
-    await withTimeout(deleteOp(), 3000, undefined);
-    console.log('Usuário excluído com sucesso do banco de dados:', userId);
+    const docRef = doc(db, COLLECTION_USUARIOS, userId);
+    await deleteDoc(docRef);
+    console.log('[FIREBASE CRUD OK] Usuário excluído com sucesso do Firestore:', userId);
   } catch (e) {
-    console.error('Erro ao excluir usuário no banco de dados:', e);
+    console.error('[FIREBASE CRUD ERRO] Erro ao excluir usuário no Firestore:', e);
+    throw e;
   }
 };
 
@@ -592,24 +573,10 @@ export const sincronizarUsuariosIniciaisFirestore = async (initialUsers: User[])
   if (!db) return;
   try {
     const usuariosExistentes = await buscarUsuariosFirestore();
-
-    const mapExistentes = new Map<string, User>();
-    usuariosExistentes.forEach((u) => {
-      const codeKey = (u.code || '').toLowerCase().trim();
-      const emailKey = (u.email || '').toLowerCase().trim();
-      if (codeKey) mapExistentes.set(codeKey, u);
-      if (emailKey) mapExistentes.set(emailKey, u);
-      if (u.id) mapExistentes.set(u.id, u);
-    });
-
-    for (const u of initialUsers) {
-      const codeKey = (u.code || '').toLowerCase().trim();
-      const emailKey = (u.email || '').toLowerCase().trim();
-      if (
-        !mapExistentes.has(codeKey) &&
-        !mapExistentes.has(emailKey) &&
-        !mapExistentes.has(u.id)
-      ) {
+    // Se o banco estiver completamente vazio, popula com a lista inicial
+    if (usuariosExistentes.length === 0) {
+      console.log('[FIREBASE SEED] Inicializando banco de dados com a lista de usuários iniciais...');
+      for (const u of initialUsers) {
         await salvarUsuarioFirestore(u);
       }
     }

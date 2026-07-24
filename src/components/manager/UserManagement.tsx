@@ -148,6 +148,29 @@ export const UserManagement: React.FC = () => {
     }
   };
 
+  const handleDeleteUser = async (e: React.MouseEvent, idToDelete: string, userName: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    if (!idToDelete) {
+      console.warn('[EXCLUSÃO AVISO] Tentativa de excluir usuário sem ID válido.');
+      return;
+    }
+
+    if (!confirm(`Deseja realmente remover o usuário "${userName}"?`)) {
+      return;
+    }
+
+    try {
+      console.log(`[EXCLUSÃO] Iniciando remoção do usuário por ID único: ${idToDelete}`);
+      await deleteUser(idToDelete);
+      showToastNotification(`Usuário "${userName}" foi excluído com sucesso do sistema.`, 'error');
+    } catch (err: any) {
+      console.error('[EXCLUSÃO ERRO] Falha ao remover usuário:', err);
+      showToastNotification(`Erro ao excluir usuário: ${err?.message || 'Falha no banco de dados.'}`, 'error');
+    }
+  };
+
   return (
     <div className="space-y-6 relative">
       {/* Toast Notification Banner */}
@@ -275,7 +298,12 @@ export const UserManagement: React.FC = () => {
                     {canManageUsers ? (
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => openEditUserModal(usr)}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            openEditUserModal(usr);
+                          }}
                           className="p-1.5 rounded-lg bg-slate-100 text-amber-600 hover:bg-amber-50 transition-colors"
                           title="Editar Usuário & Alterar Senha"
                         >
@@ -284,10 +312,8 @@ export const UserManagement: React.FC = () => {
 
                         {currentUser?.id !== usr.id && (
                           <button
-                            onClick={() => {
-                              deleteUser(usr.id);
-                              showToastNotification(`Usuário "${usr.name}" excluído do sistema.`, 'error');
-                            }}
+                            type="button"
+                            onClick={(e) => handleDeleteUser(e, usr.id, usr.name)}
                             className="p-1.5 rounded-lg bg-slate-100 text-rose-600 hover:bg-rose-50 transition-colors"
                             title="Excluir Usuário"
                           >
