@@ -428,6 +428,17 @@ export const FleetOverview: React.FC = () => {
                 </label>
               </div>
 
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Destino da Viagem</label>
+                <input
+                  type="text"
+                  value={editingTrip.destinationName}
+                  onChange={(e) => setEditingTrip({ ...editingTrip, destinationName: e.target.value })}
+                  required
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-white focus:border-amber-400 focus:outline-none font-semibold text-emerald-400"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">Data da Viagem</label>

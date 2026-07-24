@@ -148,7 +148,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         : undefined;
 
     const unsubscribe = ouvirLancamentosEmTempoReal((firebaseTrips) => {
-      setTrips(firebaseTrips || []);
+      if (firebaseTrips && firebaseTrips.length > 0) {
+        setTrips((prev) => {
+          const map = new Map<string, Trip>();
+          // Inserir viagens vindas do Firestore
+          firebaseTrips.forEach((ft) => map.set(ft.id, ft));
+          // Preservar lançamentos locais recém-criados que ainda não estão no Firestore
+          prev.forEach((pt) => {
+            if (!map.has(pt.id)) {
+              map.set(pt.id, pt);
+            }
+          });
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          try {
+            localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(merged));
+          } catch (e) {
+            console.error('Erro ao salvar viagens no localStorage:', e);
+          }
+          return merged;
+        });
+      } else {
+        // Se o Firestore retornar lista vazia, preservar o que está no localStorage
+        try {
+          const savedTrips = localStorage.getItem(LOCAL_STORAGE_TRIPS_KEY);
+          if (savedTrips) {
+            const parsed: Trip[] = JSON.parse(savedTrips);
+            if (parsed && parsed.length > 0) {
+              setTrips(parsed);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao carregar viagens salvas:', e);
+        }
+      }
     }, filtroSeguro);
 
     return () => {
@@ -303,7 +337,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'aprovado',
       createdAt: new Date().toISOString(),
     };
-    setTrips((prev) => [newTrip, ...prev]);
+
+    setTrips((prev) => {
+      const updated = [newTrip, ...prev];
+      try {
+        localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Erro ao salvar nova viagem no localStorage:', e);
+      }
+      return updated;
+    });
 
     // Persiste no Firestore em segundo plano
     salvarLancamento({
@@ -320,35 +363,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       media_consumo: tripData.kml,
       url_comprovante: tripData.proofUrl,
       observacoes: tripData.notes,
-    }).catch(console.error);
+    })
+      .then((fireId) => {
+        if (fireId && !fireId.startsWith('local-')) {
+          setTrips((prev) => {
+            const updated = prev.map((t) => (t.id === tempId ? { ...t, id: fireId } : t));
+            try {
+              localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(updated));
+            } catch (e) {}
+            return updated;
+          });
+        }
+      })
+      .catch((err) => console.error('Erro ao salvar no Firestore:', err));
 
     return newTrip;
   };
 
   const updateTrip = (updatedTrip: Trip) => {
-    setTrips((prev) =>
-      prev.map((t) => (t.id === updatedTrip.id ? { ...updatedTrip, updatedAt: new Date().toISOString() } : t))
-    );
+    const tripToSave: Trip = {
+      ...updatedTrip,
+      updatedAt: new Date().toISOString(),
+    };
 
-    if (updatedTrip.id && !updatedTrip.id.startsWith('trp-')) {
-      atualizarLancamento(updatedTrip.id, {
-        data_registro: updatedTrip.date,
-        destino: updatedTrip.destinationName,
-        codigo_destino: updatedTrip.destinationCode,
-        placa_cavalo: updatedTrip.cavaloPlate,
-        placa_carreta: updatedTrip.siderPlate,
-        media_consumo: updatedTrip.kml,
-        url_comprovante: updatedTrip.proofUrl,
-        observacoes: updatedTrip.notes,
-      }).catch(console.error);
+    setTrips((prev) => {
+      const updated = prev.map((t) => (t.id === tripToSave.id ? tripToSave : t));
+      try {
+        localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Erro ao atualizar viagem no localStorage:', e);
+      }
+      return updated;
+    });
+
+    if (tripToSave.id && !tripToSave.id.startsWith('trp-')) {
+      atualizarLancamento(tripToSave.id, {
+        data_registro: tripToSave.date,
+        destino: tripToSave.destinationName,
+        codigo_destino: tripToSave.destinationCode,
+        placa_cavalo: tripToSave.cavaloPlate,
+        placa_carreta: tripToSave.siderPlate,
+        media_consumo: tripToSave.kml,
+        url_comprovante: tripToSave.proofUrl,
+        observacoes: tripToSave.notes,
+      }).catch((err) => console.error('Erro ao atualizar no Firestore:', err));
     }
   };
 
   const deleteTrip = (tripId: string) => {
-    setTrips((prev) => prev.filter((t) => t.id !== tripId));
+    setTrips((prev) => {
+      const updated = prev.filter((t) => t.id !== tripId);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_TRIPS_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Erro ao remover viagem do localStorage:', e);
+      }
+      return updated;
+    });
 
     if (tripId && !tripId.startsWith('trp-')) {
-      excluirLancamento(tripId).catch(console.error);
+      excluirLancamento(tripId).catch((err) => console.error('Erro ao excluir no Firestore:', err));
     }
   };
 
