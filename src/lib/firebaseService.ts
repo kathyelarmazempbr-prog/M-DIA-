@@ -593,18 +593,6 @@ export const sincronizarUsuariosIniciaisFirestore = async (initialUsers: User[])
   try {
     const usuariosExistentes = await buscarUsuariosFirestore();
 
-    // Remove registros legados do PEDRO BRUNO do Firestore se existirem
-    for (const u of usuariosExistentes) {
-      if (
-        (u.code || '').toLowerCase().trim() === 'g1000' ||
-        (u.name || '').toUpperCase().trim() === 'PEDRO BRUNO' ||
-        (u.email || '').toLowerCase().trim() === 'pedro.bruno@mediaplus.com.br' ||
-        u.id === 'usr-g1000'
-      ) {
-        await deleteDoc(doc(db, COLLECTION_USUARIOS, u.id));
-      }
-    }
-
     const mapExistentes = new Map<string, User>();
     usuariosExistentes.forEach((u) => {
       const codeKey = (u.code || '').toLowerCase().trim();
@@ -618,8 +606,6 @@ export const sincronizarUsuariosIniciaisFirestore = async (initialUsers: User[])
       const codeKey = (u.code || '').toLowerCase().trim();
       const emailKey = (u.email || '').toLowerCase().trim();
       if (
-        codeKey !== 'g1000' &&
-        emailKey !== 'pedro.bruno@mediaplus.com.br' &&
         !mapExistentes.has(codeKey) &&
         !mapExistentes.has(emailKey) &&
         !mapExistentes.has(u.id)

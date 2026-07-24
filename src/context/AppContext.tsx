@@ -47,15 +47,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const mergeUserLists = (initial: User[], cloudUsers: User[]): User[] => {
-  const isPedroBruno = (u: User) =>
-    (u.code || '').toLowerCase().trim() === 'g1000' ||
-    (u.name || '').toUpperCase().trim() === 'PEDRO BRUNO' ||
-    (u.email || '').toLowerCase().trim() === 'pedro.bruno@mediaplus.com.br';
-
   if (cloudUsers && cloudUsers.length > 0) {
-    const cleanCloudUsers = cloudUsers.filter((u) => !isPedroBruno(u));
-
-    const hasDev = cleanCloudUsers.some(
+    const hasDev = cloudUsers.some(
       (u) => u.role === 'developer' || u.email === 'admin@mediaplus.com.br' || u.id === 'usr-admin'
     );
 
@@ -70,12 +63,12 @@ const mergeUserLists = (initial: User[], cloudUsers: User[]): User[] => {
         phone: '(66) 99999-8888',
         active: true,
       };
-      return [...cleanCloudUsers, dev];
+      return [...cloudUsers, dev];
     }
-    return cleanCloudUsers;
+    return cloudUsers;
   }
 
-  return initial.filter((u) => !isPedroBruno(u));
+  return initial;
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -372,6 +365,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('[BANCO DE DADOS OK] Usuário sincronizado no Firestore com sucesso! ID:', newUser.id);
     } catch (e) {
       console.error('[BANCO DE DADOS ERRO] Erro ao sincronizar usuário no Firestore:', e);
+      throw e;
     }
 
     // 4. Cadastro no Firebase Auth via Instância Secundária (Mantém sessão do Admin intacta)
@@ -419,6 +413,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('[BANCO DE DADOS OK] Usuário atualizado no Firestore com sucesso!');
     } catch (e) {
       console.error('[BANCO DE DADOS ERRO] Erro ao atualizar usuário no Firestore:', e);
+      throw e;
     }
 
     return cleanedUser;

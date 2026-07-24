@@ -1,13 +1,24 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { User, UserRole } from '../../types';
-import { UserPlus, Edit2, ShieldCheck, UserCheck, Trash2, Check, X, Lock, Code } from 'lucide-react';
+import { UserPlus, Edit2, ShieldCheck, UserCheck, Trash2, Check, X, Code, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
 
 export const UserManagement: React.FC = () => {
   const { users, addUser, updateUser, deleteUser, currentUser } = useApp();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  // Notifications and Inline Feedback
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const showToastNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
 
   // Check if current user can manage users (Supervisor, Admin, Developer or default session)
   const canManageUsers = !currentUser || currentUser.role === 'developer' || currentUser.role === 'admin' || currentUser.role === 'supervisor';
@@ -27,6 +38,7 @@ export const UserManagement: React.FC = () => {
   const openNewUserModal = () => {
     if (!canManageUsers) return;
     setEditingUser(null);
+    setFormError(null);
     setName('');
     setCode(`MOT-${100 + users.length + 1}`);
     setEmail('');
@@ -43,6 +55,7 @@ export const UserManagement: React.FC = () => {
   const openEditUserModal = (usr: User) => {
     if (!canManageUsers) return;
     setEditingUser(usr);
+    setFormError(null);
     setName(usr.name);
     setCode(usr.code);
     setEmail(usr.email);
@@ -60,25 +73,27 @@ export const UserManagement: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
     if (!canManageUsers) {
-      alert('Sua conta não possui permissão para cadastrar ou editar usuários.');
+      setFormError('Sua conta não possui permissão para cadastrar ou editar usuários.');
       return;
     }
 
     if (!name.trim()) {
-      alert('Por favor, preencha o Nome Completo do usuário.');
+      setFormError('Por favor, preencha o Nome Completo do usuário.');
       return;
     }
     if (!code.trim()) {
-      alert('Por favor, preencha o Código do usuário (ex: MOT-107).');
+      setFormError('Por favor, preencha o Código do usuário (ex: MOT-107).');
       return;
     }
     if (!email.trim()) {
-      alert('Por favor, preencha o E-mail de Login do usuário.');
+      setFormError('Por favor, preencha o E-mail de Login do usuário.');
       return;
     }
     if (!password.trim()) {
-      alert('Por favor, preencha a Senha de Acesso do usuário.');
+      setFormError('Por favor, preencha a Senha de Acesso do usuário.');
       return;
     }
 
@@ -106,7 +121,8 @@ export const UserManagement: React.FC = () => {
           active,
         });
         console.log('[SUBMIT OK] Usuário atualizado com sucesso!');
-        alert('Usuário atualizado e salvo no banco de dados com sucesso!');
+        setIsModalOpen(false);
+        showToastNotification(`Usuário "${name.trim()}" atualizado no banco de dados com sucesso!`, 'success');
       } else {
         await addUser({
           name: name.trim(),
@@ -121,19 +137,43 @@ export const UserManagement: React.FC = () => {
           active,
         });
         console.log('[SUBMIT OK] Novo usuário cadastrado com sucesso!');
-        alert('Novo usuário cadastrado e salvo no banco de dados na nuvem com sucesso!');
+        setIsModalOpen(false);
+        showToastNotification(`Novo usuário "${name.trim()}" registrado e sincronizado no banco de dados com sucesso!`, 'success');
       }
-      setIsModalOpen(false);
     } catch (err: any) {
       console.error('[SUBMIT ERRO] Falha ao cadastrar/atualizar usuário:', err);
-      alert(`Erro ao salvar no banco de dados: ${err?.message || 'Ocorreu um erro ao salvar.'}`);
+      setFormError(`Erro ao salvar no banco de dados: ${err?.message || 'Falha de conexão com a nuvem.'}`);
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Toast Notification Banner */}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold transition-all animate-in slide-in-from-top-2 duration-300 ${
+            toast.type === 'success'
+              ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-900/20'
+              : 'bg-rose-600 text-white border-rose-500 shadow-rose-900/20'
+          }`}
+        >
+          {toast.type === 'success' ? (
+            <CheckCircle2 className="h-5 w-5 shrink-0" />
+          ) : (
+            <AlertCircle className="h-5 w-5 shrink-0" />
+          )}
+          <span>{toast.message}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-2 rounded-lg p-0.5 hover:bg-white/20 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header and Add Button */}
       <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
@@ -245,9 +285,8 @@ export const UserManagement: React.FC = () => {
                         {currentUser?.id !== usr.id && (
                           <button
                             onClick={() => {
-                              if (confirm(`Deseja realmente remover o usuário ${usr.name}?`)) {
-                                deleteUser(usr.id);
-                              }
+                              deleteUser(usr.id);
+                              showToastNotification(`Usuário "${usr.name}" excluído do sistema.`, 'error');
                             }}
                             className="p-1.5 rounded-lg bg-slate-100 text-rose-600 hover:bg-rose-50 transition-colors"
                             title="Excluir Usuário"
@@ -283,6 +322,14 @@ export const UserManagement: React.FC = () => {
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {/* Inline Error Message Banner */}
+            {formError && (
+              <div className="mt-3.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-150">
+                <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
