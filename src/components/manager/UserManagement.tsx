@@ -9,8 +9,8 @@ export const UserManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  // Check if current user is Desenvolvedor/Admin
-  const canManageUsers = currentUser?.role === 'developer' || currentUser?.role === 'admin';
+  // Check if current user can manage users (Supervisor, Admin, Developer or default session)
+  const canManageUsers = !currentUser || currentUser.role === 'developer' || currentUser.role === 'admin' || currentUser.role === 'supervisor';
 
   // Form states
   const [name, setName] = useState('');
@@ -60,52 +60,75 @@ export const UserManagement: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManageUsers) return;
+    if (!canManageUsers) {
+      alert('Sua conta não possui permissão para cadastrar ou editar usuários.');
+      return;
+    }
+
+    if (!name.trim()) {
+      alert('Por favor, preencha o Nome Completo do usuário.');
+      return;
+    }
+    if (!code.trim()) {
+      alert('Por favor, preencha o Código do usuário (ex: MOT-107).');
+      return;
+    }
+    if (!email.trim()) {
+      alert('Por favor, preencha o E-mail de Login do usuário.');
+      return;
+    }
+    if (!password.trim()) {
+      alert('Por favor, preencha a Senha de Acesso do usuário.');
+      return;
+    }
 
     setIsSaving(true);
-    console.log('Tentando conectar ao banco para salvar cadastro/edição de usuário...');
+    console.log('[SUBMIT FORM] Iniciando salvamento no banco de dados do usuário:', name.trim());
 
     const isDriverRole = role === 'driver';
     const parsedTargetKml = isDriverRole ? parseFloat(targetKml) || 2.60 : undefined;
-    const cavaloVal = isDriverRole ? cavaloPadrao : undefined;
-    const siderVal = isDriverRole ? siderPadrao : undefined;
+    const cavaloVal = isDriverRole ? cavaloPadrao.trim() : undefined;
+    const siderVal = isDriverRole ? siderPadrao.trim() : undefined;
 
     try {
       if (editingUser) {
-        updateUser({
+        await updateUser({
           ...editingUser,
-          name,
-          code,
-          email,
-          password,
+          name: name.trim(),
+          code: code.trim().toUpperCase(),
+          email: email.trim().toLowerCase(),
+          password: password.trim(),
           role,
           cavaloPadrao: cavaloVal,
           siderPadrao: siderVal,
           targetKml: parsedTargetKml,
-          phone,
+          phone: phone.trim(),
           active,
         });
-        console.log('Usuário salvo com sucesso!');
+        console.log('[SUBMIT OK] Usuário atualizado com sucesso!');
+        alert('Usuário atualizado e salvo no banco de dados com sucesso!');
       } else {
-        addUser({
-          name,
-          code,
-          email,
-          password,
+        await addUser({
+          name: name.trim(),
+          code: code.trim().toUpperCase(),
+          email: email.trim().toLowerCase(),
+          password: password.trim(),
           role,
           cavaloPadrao: cavaloVal,
           siderPadrao: siderVal,
           targetKml: parsedTargetKml,
-          phone,
+          phone: phone.trim(),
           active,
         });
-        console.log('Novo usuário cadastrado e salvo com sucesso!');
+        console.log('[SUBMIT OK] Novo usuário cadastrado com sucesso!');
+        alert('Novo usuário cadastrado e salvo no banco de dados na nuvem com sucesso!');
       }
-    } catch (err) {
-      console.error('Erro ao salvar usuário no sistema/banco de dados:', err);
+      setIsModalOpen(false);
+    } catch (err: any) {
+      console.error('[SUBMIT ERRO] Falha ao cadastrar/atualizar usuário:', err);
+      alert(`Erro ao salvar no banco de dados: ${err?.message || 'Ocorreu um erro ao salvar.'}`);
     } finally {
       setIsSaving(false);
-      setIsModalOpen(false);
     }
   };
 

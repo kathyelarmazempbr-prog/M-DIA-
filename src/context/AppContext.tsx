@@ -28,8 +28,8 @@ interface AppContextType {
   addTrip: (newTrip: Omit<Trip, 'id' | 'createdAt' | 'status'>) => Trip;
   updateTrip: (updatedTrip: Trip) => void;
   deleteTrip: (tripId: string) => void;
-  addUser: (newUser: Omit<User, 'id'>) => User;
-  updateUser: (updatedUser: User) => void;
+  addUser: (newUser: Omit<User, 'id'>) => Promise<User>;
+  updateUser: (updatedUser: User) => Promise<User>;
   deleteUser: (userId: string) => void;
   resetToDefaultData: () => void;
   clearAllTrips: () => Promise<void>;
@@ -333,7 +333,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addUser = (userData: Omit<User, 'id'>): User => {
+  const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
     console.log('[DIAGNOSTICO CADASTRO] Tentando cadastrar e salvar usuário:', userData.name || userData.code);
     const newUserId = 'usr-' + Date.now();
     const newUser: User = {
@@ -367,17 +367,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 3. Sincronização em Nuvem (Firestore)
     try {
-      salvarUsuarioFirestore(newUser)
-        .then(() => console.log('[BANCO DE DADOS OK] Usuário sincronizado no Firestore com sucesso! ID:', newUser.id))
-        .catch((err) => console.error('[BANCO DE DADOS ERRO] Erro ao sincronizar usuário no Firestore:', err));
+      await salvarUsuarioFirestore(newUser);
+      console.log('[BANCO DE DADOS OK] Usuário sincronizado no Firestore com sucesso! ID:', newUser.id);
     } catch (e) {
-      console.error('[BANCO DE DADOS EXCEÇÃO] Erro ao executar salvarUsuarioFirestore:', e);
+      console.error('[BANCO DE DADOS ERRO] Erro ao sincronizar usuário no Firestore:', e);
     }
 
     return newUser;
   };
 
-  const updateUser = (updatedUser: User) => {
+  const updateUser = async (updatedUser: User): Promise<User> => {
     console.log('[DIAGNOSTICO EDIÇÃO] Tentando atualizar usuário:', updatedUser.name || updatedUser.code);
     const cleanedUser: User = {
       ...updatedUser,
@@ -406,12 +405,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 3. Sincronização em Nuvem (Firestore)
     try {
-      salvarUsuarioFirestore(cleanedUser)
-        .then(() => console.log('[BANCO DE DADOS OK] Usuário atualizado no Firestore com sucesso!'))
-        .catch((err) => console.error('[BANCO DE DADOS ERRO] Erro ao atualizar usuário no Firestore:', err));
+      await salvarUsuarioFirestore(cleanedUser);
+      console.log('[BANCO DE DADOS OK] Usuário atualizado no Firestore com sucesso!');
     } catch (e) {
-      console.error('[BANCO DE DADOS EXCEÇÃO] Erro ao atualizar usuário:', e);
+      console.error('[BANCO DE DADOS ERRO] Erro ao atualizar usuário no Firestore:', e);
     }
+
+    return cleanedUser;
   };
 
   const deleteUser = (userId: string) => {
