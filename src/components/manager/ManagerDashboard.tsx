@@ -12,6 +12,8 @@ export const ManagerDashboard: React.FC = () => {
 
   if (!currentUser) return null;
 
+  const isDeveloper = currentUser?.role === 'developer';
+
   return (
     <div className="space-y-6 pb-12">
       {/* Manager Welcome Banner */}
@@ -65,17 +67,19 @@ export const ManagerDashboard: React.FC = () => {
             <span>Rankings</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 text-xs sm:text-sm font-bold rounded-xl transition-all ${
-              activeTab === 'users'
-                ? 'bg-emerald-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-          >
-            <Users className="h-4 w-4" />
-            <span>Usuários</span>
-          </button>
+          {isDeveloper && (
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+                activeTab === 'users'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <Users className="h-4 w-4" />
+              <span>Usuários</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab('export')}
@@ -95,7 +99,7 @@ export const ManagerDashboard: React.FC = () => {
       <div className="animate-in fade-in duration-200">
         {activeTab === 'overview' && <FleetOverview />}
         {activeTab === 'rankings' && <RankingsView />}
-        {activeTab === 'users' && <UserManagement />}
+        {activeTab === 'users' && isDeveloper && <UserManagement />}
         {activeTab === 'export' && <ExportReports />}
       </div>
     </div>

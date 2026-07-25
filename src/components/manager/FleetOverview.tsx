@@ -38,6 +38,11 @@ export const FleetOverview: React.FC = () => {
   const [isClearing, setIsClearing] = useState(false);
 
   const handleConfirmClearAll = async () => {
+    if (currentUser?.role !== 'developer') {
+      console.warn('[RBAC BLOQUEIO] Apenas o perfil Desenvolvedor tem permissão para zerar o histórico.');
+      setShowClearModal(false);
+      return;
+    }
     setIsClearing(true);
     try {
       await clearAllTrips();

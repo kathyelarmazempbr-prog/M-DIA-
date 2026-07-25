@@ -341,6 +341,9 @@ export const criarUsuarioAuthSemDeslogarAdmin = async (
   email: string,
   pass: string
 ): Promise<FirebaseUser | null> => {
+  if (!email || !email.includes('@')) {
+    return null;
+  }
   console.log('[FIREBASE AUTH SECUNDÁRIO] Cadastrando credencial no Auth sem deslogar Admin:', email);
   try {
     const secondaryAppName = 'SecondaryAuthApp';
@@ -359,6 +362,8 @@ export const criarUsuarioAuthSemDeslogarAdmin = async (
   } catch (err: any) {
     if (err?.code === 'auth/email-already-in-use') {
       console.log('[FIREBASE AUTH SECUNDÁRIO] E-mail já cadastrado no Auth:', email);
+    } else if (err?.code === 'auth/configuration-not-found') {
+      console.warn('[FIREBASE AUTH SECUNDÁRIO] Provedor E-mail/Senha não configurado no console do Firebase.');
     } else {
       console.warn('[FIREBASE AUTH SECUNDÁRIO AVISO] Erro ao registrar credencial:', err?.message || err);
     }
@@ -367,20 +372,30 @@ export const criarUsuarioAuthSemDeslogarAdmin = async (
 };
 
 export const autenticarNoFirebase = async (email: string, pass: string): Promise<FirebaseUser | null> => {
-  console.log('Tentando conectar ao serviço de autenticação do Firebase...');
-  if (!auth) {
-    console.warn('Firebase Auth não inicializado. Prosseguindo com autenticação local.');
+  if (!auth || !email || !email.includes('@')) {
+    console.log('[FIREBASE AUTH] Ignorando autenticação secundária (e-mail não fornecido ou serviço inativo).');
     return null;
   }
+  console.log('Tentando conectar ao serviço de autenticação do Firebase...');
   try {
-    const authPromise = signInWithEmailAndPassword(auth, email, pass).then((res) => res.user);
+    const authPromise = signInWithEmailAndPassword(auth, email, pass)
+      .then((res) => res.user)
+      .catch((err) => {
+        if (err?.code === 'auth/configuration-not-found') {
+          console.warn('[FIREBASE AUTH] Provedor de e-mail/senha não ativado no console Firebase. Prosseguindo com autenticação via banco de dados Firestore.');
+        } else {
+          console.warn('[FIREBASE AUTH AVISO] Falha ao autenticar no Firebase Auth:', err?.message || err);
+        }
+        return null;
+      });
+
     const user = await withTimeout(authPromise, 3000, null);
     if (user) {
       console.log('Autenticação no Firebase Auth concluída com sucesso!');
       return user;
     }
   } catch (error: any) {
-    console.warn('Erro ao autenticar no Firebase Auth (fallback local ativo):', error);
+    console.warn('Erro ao autenticar no Firebase Auth (fallback local/Firestore ativo):', error);
   }
   return null;
 };

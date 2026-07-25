@@ -28,9 +28,13 @@ export const Login: React.FC = () => {
       } else {
         console.log('[LOGIN OK] Login concluído com sucesso!');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[LOGIN ERRO] Exceção capturada ao realizar login:', err);
-      setError('Erro ao realizar login no banco de dados. Tente novamente.');
+      if (err?.message === 'Usuário inativo. Acesso negado.') {
+        setError('Usuário inativo. Acesso negado.');
+      } else {
+        setError(err?.message || 'Erro ao realizar login no banco de dados. Tente novamente.');
+      }
     } finally {
       clearTimeout(safetyTimer);
       setLoading(false);
@@ -65,7 +69,7 @@ export const Login: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
                 E-mail ou Código de Motorista
@@ -78,6 +82,7 @@ export const Login: React.FC = () => {
                   type="text"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
+                  autoComplete="username"
                   placeholder="Ex: 9013 ou seu.email@empresa.com.br"
                   required
                   className="w-full rounded-xl bg-slate-50 border border-slate-200 pl-10 pr-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none transition-all"
@@ -97,6 +102,7 @@ export const Login: React.FC = () => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   required
                   className="w-full rounded-xl bg-slate-50 border border-slate-200 pl-10 pr-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none transition-all"

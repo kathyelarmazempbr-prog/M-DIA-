@@ -192,10 +192,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    // 2. Verificar se o usuário está ativo
-    if (foundUser.active === false) {
+    // 2. Verificar se o usuário está ativo (active / is_active)
+    const isUserActive = foundUser.active !== false && (foundUser as any).is_active !== false;
+    if (!isUserActive) {
       console.warn(`[LOGIN FAIL] Usuário inativo no sistema: ${foundUser.name} (${foundUser.code || foundUser.email})`);
-      return false;
+      throw new Error('Usuário inativo. Acesso negado.');
     }
 
     // 3. Validar a senha

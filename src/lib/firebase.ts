@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 
@@ -22,7 +22,13 @@ let authInstance: any = null;
 
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  dbInstance = getFirestore(app);
+  try {
+    dbInstance = initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true
+    });
+  } catch (e) {
+    dbInstance = getFirestore(app);
+  }
   storageInstance = getStorage(app);
   authInstance = getAuth(app);
   console.log(`[FIREBASE CONECTADO] Projeto ativo no GitHub Pages/Nuvem: ${firebaseConfig.projectId}`);

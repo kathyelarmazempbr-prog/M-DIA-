@@ -20,8 +20,23 @@ export const UserManagement: React.FC = () => {
     }, 4000);
   };
 
-  // Check if current user can manage users (Supervisor, Admin, Developer or default session)
-  const canManageUsers = !currentUser || currentUser.role === 'developer' || currentUser.role === 'admin' || currentUser.role === 'supervisor';
+  // Check if current user is developer (exclusive permission for user management)
+  const isDeveloper = currentUser?.role === 'developer';
+  const canManageUsers = isDeveloper;
+
+  if (!isDeveloper) {
+    return (
+      <div className="bg-white rounded-2xl p-8 border border-slate-100 shadow-xs text-center space-y-4">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+          <Lock className="h-8 w-8" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900">Acesso Restrito - Somente Desenvolvedor</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+          O perfil de <strong>Supervisor</strong> não possui permissão para acessar a gestão de usuários, cadastrar, editar ou gerenciar permissões do sistema. Esta funcionalidade é de acesso exclusivo para o perfil <strong>Desenvolvedor</strong>.
+        </p>
+      </div>
+    );
+  }
 
   // Form states
   const [name, setName] = useState('');
@@ -29,9 +44,7 @@ export const UserManagement: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('driver');
-  const [cavaloPadrao, setCavaloPadrao] = useState('');
-  const [siderPadrao, setSiderPadrao] = useState('');
-  const [targetKml, setTargetKml] = useState('2.60');
+  const [targetKml, setTargetKml] = useState('');
   const [phone, setPhone] = useState('');
   const [active, setActive] = useState(true);
 
@@ -40,13 +53,11 @@ export const UserManagement: React.FC = () => {
     setEditingUser(null);
     setFormError(null);
     setName('');
-    setCode(`MOT-${100 + users.length + 1}`);
+    setCode('');
     setEmail('');
-    setPassword('123456');
+    setPassword('');
     setRole('driver');
-    setCavaloPadrao('');
-    setSiderPadrao('');
-    setTargetKml('2.60');
+    setTargetKml('');
     setPhone('');
     setActive(true);
     setIsModalOpen(true);
@@ -58,14 +69,12 @@ export const UserManagement: React.FC = () => {
     setFormError(null);
     setName(usr.name);
     setCode(usr.code);
-    setEmail(usr.email);
-    setPassword(usr.password || '123456');
+    setEmail(usr.email || '');
+    setPassword(''); // Garantir que a senha venha vazia ao abrir o modal para evitar preenchimento automático
     setRole(usr.role);
-    setCavaloPadrao(usr.cavaloPadrao || '');
-    setSiderPadrao(usr.siderPadrao || '');
-    setTargetKml(usr.targetKml ? String(usr.targetKml) : '2.60');
+    setTargetKml(usr.targetKml !== undefined && usr.targetKml !== null ? String(usr.targetKml) : '');
     setPhone(usr.phone || '');
-    setActive(usr.active);
+    setActive(usr.active ?? true);
     setIsModalOpen(true);
   };
 
@@ -88,12 +97,9 @@ export const UserManagement: React.FC = () => {
       setFormError('Por favor, preencha o Código do usuário (ex: MOT-107).');
       return;
     }
-    if (!email.trim()) {
-      setFormError('Por favor, preencha o E-mail de Login do usuário.');
-      return;
-    }
-    if (!password.trim()) {
-      setFormError('Por favor, preencha a Senha de Acesso do usuário.');
+    // Para novo usuário, senha é obrigatória. Na edição, se ficar em branco, mantém a senha atual.
+    if (!editingUser && !password.trim()) {
+      setFormError('Por favor, preencha a Senha de Acesso para o novo usuário.');
       return;
     }
 
@@ -101,9 +107,8 @@ export const UserManagement: React.FC = () => {
     console.log('[SUBMIT FORM] Iniciando salvamento no banco de dados do usuário:', name.trim());
 
     const isDriverRole = role === 'driver';
-    const parsedTargetKml = isDriverRole ? parseFloat(targetKml) || 2.60 : undefined;
-    const cavaloVal = isDriverRole ? cavaloPadrao.trim() : undefined;
-    const siderVal = isDriverRole ? siderPadrao.trim() : undefined;
+    const parsedTargetKml = isDriverRole && targetKml.trim() !== '' ? parseFloat(targetKml) : undefined;
+    const finalPassword = password.trim() ? password.trim() : (editingUser?.password || '123456');
 
     try {
       if (editingUser) {
@@ -112,10 +117,8 @@ export const UserManagement: React.FC = () => {
           name: name.trim(),
           code: code.trim().toUpperCase(),
           email: email.trim().toLowerCase(),
-          password: password.trim(),
+          password: finalPassword,
           role,
-          cavaloPadrao: cavaloVal,
-          siderPadrao: siderVal,
           targetKml: parsedTargetKml,
           phone: phone.trim(),
           active,
@@ -130,8 +133,6 @@ export const UserManagement: React.FC = () => {
           email: email.trim().toLowerCase(),
           password: password.trim(),
           role,
-          cavaloPadrao: cavaloVal,
-          siderPadrao: siderVal,
           targetKml: parsedTargetKml,
           phone: phone.trim(),
           active,
@@ -357,7 +358,11 @@ export const UserManagement: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 text-xs">
+            <form onSubmit={handleSubmit} autoComplete="off" className="mt-4 space-y-3.5 text-xs">
+              {/* Truque contra preenchimento automático invasivo de navegadores (Chrome/Edge/Safari) */}
+              <input type="text" name="fake_username_autofill" style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" autoComplete="off" />
+              <input type="password" name="fake_password_autofill" style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" autoComplete="new-password" />
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-600 font-semibold mb-1">Nome Completo *</label>
@@ -366,6 +371,7 @@ export const UserManagement: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
+                    autoComplete="off"
                     placeholder="Ex: Pedro Henrique Silva"
                     className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
                   />
@@ -378,7 +384,8 @@ export const UserManagement: React.FC = () => {
                     value={code}
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                     required
-                    placeholder="Ex: MOT-106 ou ADM-002"
+                    autoComplete="off"
+                    placeholder="Ex: 9013 ou G1060"
                     className="w-full uppercase font-mono rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
                   />
                 </div>
@@ -386,26 +393,33 @@ export const UserManagement: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">E-mail de Login *</label>
+                  <label className="block text-slate-600 font-semibold mb-1">E-mail de Login (Opcional)</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
+                    autoComplete="off"
                     placeholder="exemplo@mediaplus.com.br"
                     className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Senha de Acesso *</label>
+                  <label className="block text-slate-600 font-semibold mb-1">
+                    Senha de Acesso *
+                  </label>
                   <div className="relative">
                     <input
-                      type="text"
+                      type="password"
+                      id="user-password-input"
+                      name="new_user_password_no_autofill"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      required
-                      placeholder="Senha do usuário"
+                      required={!editingUser}
+                      autoComplete="new-password"
+                      data-lpignore="true"
+                      data-form-type="other"
+                      placeholder=""
                       className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none font-mono transition-colors"
                     />
                   </div>
@@ -430,8 +444,13 @@ export const UserManagement: React.FC = () => {
                   <label className="block text-slate-600 font-semibold mb-1">Telefone (WhatsApp)</label>
                   <input
                     type="text"
+                    id="user-phone-input"
+                    name="user_phone_no_autofill"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-form-type="other"
                     placeholder="(66) 99999-8888"
                     className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
                   />
@@ -439,43 +458,18 @@ export const UserManagement: React.FC = () => {
               </div>
 
               {role === 'driver' && (
-                <>
-                  <div className="grid grid-cols-3 gap-2.5 pt-1">
-                    <div>
-                      <label className="block text-slate-600 font-semibold mb-1">Cavalo Padrão</label>
-                      <input
-                        type="text"
-                        value={cavaloPadrao}
-                        onChange={(e) => setCavaloPadrao(e.target.value.toUpperCase())}
-                        placeholder="Ex: RLK-4A21"
-                        className="w-full uppercase font-mono rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-600 font-semibold mb-1">Sider Padrão</label>
-                      <input
-                        type="text"
-                        value={siderPadrao}
-                        onChange={(e) => setSiderPadrao(e.target.value.toUpperCase())}
-                        placeholder="Ex: SDR-1010"
-                        className="w-full uppercase font-mono rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-600 font-semibold mb-1">Meta (km/l)</label>
-                      <input
-                        type="number"
-                        step="0.05"
-                        value={targetKml}
-                        onChange={(e) => setTargetKml(e.target.value)}
-                        placeholder="2.85"
-                        className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-emerald-700 font-bold focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
-                      />
-                    </div>
-                  </div>
-                </>
+                <div className="pt-1">
+                  <label className="block text-slate-600 font-semibold mb-1">Meta (km/l)</label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    value={targetKml}
+                    onChange={(e) => setTargetKml(e.target.value)}
+                    autoComplete="off"
+                    placeholder="Ex: 2.60"
+                    className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-emerald-700 font-bold focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
+                  />
+                </div>
               )}
 
               <div className="flex items-center gap-2 pt-1">
