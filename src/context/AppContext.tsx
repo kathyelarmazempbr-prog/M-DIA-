@@ -84,7 +84,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubUsers = ouvirUsuariosEmTempoReal((cloudUsers) => {
       if (cloudUsers && cloudUsers.length > 0) {
-        setUsers(mergeUserLists(INITIAL_USERS, cloudUsers));
+        const merged = mergeUserLists(INITIAL_USERS, cloudUsers);
+        setUsers(merged);
+        setCurrentUser((prev) => {
+          if (!prev) return null;
+          const updatedSelf = merged.find(
+            (u) => u.id === prev.id || (u.email && u.email === prev.email) || (u.code && u.code === prev.code)
+          );
+          return updatedSelf ? { ...prev, ...updatedSelf } : prev;
+        });
       }
     });
 

@@ -25,7 +25,7 @@ import {
 } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import { db, storage, auth, firebaseConfig } from './firebase';
-import { Trip, User } from '../types';
+import { Trip, User, UserRole } from '../types';
 
 // Coleções principais do Firestore
 const COLLECTION_LANCAMENTOS = 'lancamentos';
@@ -459,13 +459,26 @@ export const apagarTodosLancamentos = async (): Promise<void> => {
  */
 
 export const mapperFirebaseParaUser = (docId: string, data: any): User => {
+  let role: UserRole = data.role || 'driver';
+
+  // Se o usuário for NIXON ou perfil admin legado, garante que o perfil seja estritamente 'supervisor'
+  const nameUpper = String(data.name || '').toUpperCase();
+  const codeUpper = String(data.code || '').toUpperCase();
+  const emailLower = String(data.email || '').toLowerCase();
+
+  if (nameUpper.includes('NIXON') || codeUpper.includes('NIXON') || emailLower.includes('nixon')) {
+    role = 'supervisor';
+  } else if (role === 'admin') {
+    role = 'supervisor';
+  }
+
   return {
     id: docId || data.id,
     code: data.code || '',
     name: data.name || '',
     email: data.email || '',
     password: data.password || '',
-    role: data.role || 'driver',
+    role,
     phone: data.phone || '',
     active: data.active ?? true,
     cavaloPadrao: data.cavaloPadrao || '',
@@ -586,6 +599,16 @@ export const sincronizarUsuariosIniciaisFirestore = async (initialUsers: User[])
       console.log('[FIREBASE SEED] Inicializando banco de dados com a lista de usuários iniciais...');
       for (const u of initialUsers) {
         await salvarUsuarioFirestore(u);
+      }
+    } else {
+      // Garante que o Nixon (e outros supervisores) tenham seu perfil 'supervisor' salvo no banco Firestore
+      for (const u of usuariosExistentes) {
+        const nameUpper = (u.name || '').toUpperCase();
+        const emailLower = (u.email || '').toLowerCase();
+        if ((nameUpper.includes('NIXON') || emailLower.includes('nixon')) && u.role !== 'supervisor') {
+          console.log('[FIREBASE SYNC] Salvando no Firestore a atualização de perfil do Nixon para supervisor...');
+          await salvarUsuarioFirestore({ ...u, role: 'supervisor' });
+        }
       }
     }
   } catch (e) {

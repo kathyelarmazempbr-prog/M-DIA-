@@ -10,7 +10,10 @@ export const ManagerDashboard: React.FC = () => {
   const { currentUser } = useApp();
   const [activeTab, setActiveTab] = useState<'overview' | 'rankings' | 'users' | 'export'>('overview');
 
-  const isDeveloper = currentUser?.role === 'developer';
+  const isDeveloper =
+    currentUser?.role === 'developer' &&
+    !currentUser?.name?.toUpperCase().includes('NIXON') &&
+    !currentUser?.email?.toLowerCase().includes('nixon');
 
   // Garante que se o perfil for Supervisor (não Desenvolvedor), a aba Ativa nunca seja 'users'
   useEffect(() => {

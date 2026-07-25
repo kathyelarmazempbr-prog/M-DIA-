@@ -21,7 +21,10 @@ export const UserManagement: React.FC = () => {
   };
 
   // Check if current user is developer (exclusive permission for user management)
-  const isDeveloper = currentUser?.role === 'developer';
+  const isDeveloper =
+    currentUser?.role === 'developer' &&
+    !currentUser?.name?.toUpperCase().includes('NIXON') &&
+    !currentUser?.email?.toLowerCase().includes('nixon');
   const canManageUsers = isDeveloper;
 
   if (!isDeveloper) {
