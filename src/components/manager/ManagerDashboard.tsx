@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { FleetOverview } from './FleetOverview';
 import { RankingsView } from './RankingsView';
@@ -10,9 +10,16 @@ export const ManagerDashboard: React.FC = () => {
   const { currentUser } = useApp();
   const [activeTab, setActiveTab] = useState<'overview' | 'rankings' | 'users' | 'export'>('overview');
 
-  if (!currentUser) return null;
-
   const isDeveloper = currentUser?.role === 'developer';
+
+  // Garante que se o perfil for Supervisor (não Desenvolvedor), a aba Ativa nunca seja 'users'
+  useEffect(() => {
+    if (activeTab === 'users' && !isDeveloper) {
+      setActiveTab('overview');
+    }
+  }, [activeTab, isDeveloper]);
+
+  if (!currentUser) return null;
 
   return (
     <div className="space-y-6 pb-12">
@@ -22,7 +29,7 @@ export const ManagerDashboard: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-xl shadow-lg shadow-emerald-950">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-xl shadow-lg shadow-emerald-950 shrink-0">
               <ShieldCheck className="h-8 w-8 stroke-[2.2]" />
             </div>
             <div>
@@ -40,57 +47,58 @@ export const ManagerDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
+      {/* Navigation Tabs - Oculta 'Usuários' totalmente no Mobile/Desktop para Supervisor e recalcula flexbox */}
       <div className="flex justify-center w-full">
-        <nav className="flex sm:inline-flex rounded-2xl bg-slate-900/90 p-1.5 border border-slate-800 shadow-lg w-full max-w-3xl overflow-x-auto no-scrollbar gap-1.5">
+        <nav className="flex rounded-2xl bg-slate-900/90 p-1.5 border border-slate-800 shadow-lg w-full max-w-3xl no-scrollbar gap-1 sm:gap-1.5">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`flex-1 min-w-[100px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3 px-2 sm:px-3 text-[11px] sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
               activeTab === 'overview'
                 ? 'bg-emerald-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <LayoutDashboard className="h-4 w-4 shrink-0" />
-            <span>Visão Geral</span>
+            <span className="truncate">Visão Geral</span>
           </button>
 
           <button
             onClick={() => setActiveTab('rankings')}
-            className={`flex-1 min-w-[100px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3 px-2 sm:px-3 text-[11px] sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
               activeTab === 'rankings'
                 ? 'bg-emerald-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <Trophy className="h-4 w-4 shrink-0" />
-            <span>Rankings</span>
+            <span className="truncate">Rankings</span>
           </button>
 
+          {/* Exibido EXCLUSIVAMENTE para perfil Desenvolvedor */}
           {isDeveloper && (
             <button
               onClick={() => setActiveTab('users')}
-              className={`flex-1 min-w-[100px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
+              className={`flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3 px-2 sm:px-3 text-[11px] sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
                 activeTab === 'users'
                   ? 'bg-emerald-500 text-slate-950 shadow-md'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
               }`}
             >
               <Users className="h-4 w-4 shrink-0" />
-              <span>Usuários</span>
+              <span className="truncate">Usuários</span>
             </button>
           )}
 
           <button
             onClick={() => setActiveTab('export')}
-            className={`flex-1 min-w-[100px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3 px-2 sm:px-3 text-[11px] sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
               activeTab === 'export'
                 ? 'bg-emerald-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <FileSpreadsheet className="h-4 w-4 shrink-0" />
-            <span>Exportar Excel</span>
+            <span className="truncate">Exportar Excel</span>
           </button>
         </nav>
       </div>
@@ -105,3 +113,4 @@ export const ManagerDashboard: React.FC = () => {
     </div>
   );
 };
+
