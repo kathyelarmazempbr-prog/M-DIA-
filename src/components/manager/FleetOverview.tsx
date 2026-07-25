@@ -242,7 +242,7 @@ export const FleetOverview: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
           {/* Search Term */}
           <div className="col-span-1 sm:col-span-2 relative">
             <Search className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
@@ -326,7 +326,7 @@ export const FleetOverview: React.FC = () => {
             Nenhum lançamento encontrado com os filtros aplicados.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-100">
                 <tr>

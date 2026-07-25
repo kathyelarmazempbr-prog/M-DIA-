@@ -139,7 +139,7 @@ export const ExportReports: React.FC = () => {
             Nenhum registro selecionado para exportação.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs font-mono border-collapse">
               <thead className="bg-slate-50 uppercase text-[10px] tracking-wider text-slate-400 border-b border-slate-100 font-sans font-bold">
                 <tr>

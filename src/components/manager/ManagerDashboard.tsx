@@ -41,55 +41,55 @@ export const ManagerDashboard: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex justify-center">
-        <nav className="inline-flex rounded-2xl bg-slate-900/90 p-1.5 border border-slate-800 shadow-lg w-full max-w-2xl overflow-x-auto">
+      <div className="flex justify-center w-full">
+        <nav className="flex sm:inline-flex rounded-2xl bg-slate-900/90 p-1.5 border border-slate-800 shadow-lg w-full max-w-3xl overflow-x-auto no-scrollbar gap-1.5">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+            className={`flex-1 min-w-[100px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
               activeTab === 'overview'
                 ? 'bg-emerald-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <LayoutDashboard className="h-4 w-4" />
+            <LayoutDashboard className="h-4 w-4 shrink-0" />
             <span>Visão Geral</span>
           </button>
 
           <button
             onClick={() => setActiveTab('rankings')}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+            className={`flex-1 min-w-[100px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
               activeTab === 'rankings'
                 ? 'bg-emerald-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <Trophy className="h-4 w-4" />
+            <Trophy className="h-4 w-4 shrink-0" />
             <span>Rankings</span>
           </button>
 
           {isDeveloper && (
             <button
               onClick={() => setActiveTab('users')}
-              className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+              className={`flex-1 min-w-[100px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
                 activeTab === 'users'
                   ? 'bg-emerald-500 text-slate-950 shadow-md'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
               }`}
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4 shrink-0" />
               <span>Usuários</span>
             </button>
           )}
 
           <button
             onClick={() => setActiveTab('export')}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+            className={`flex-1 min-w-[100px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
               activeTab === 'export'
                 ? 'bg-emerald-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <FileSpreadsheet className="h-4 w-4" />
+            <FileSpreadsheet className="h-4 w-4 shrink-0" />
             <span>Exportar Excel</span>
           </button>
         </nav>

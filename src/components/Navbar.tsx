@@ -46,9 +46,9 @@ export const Navbar: React.FC = () => {
                 ) : (
                   <UserCheck className="h-4 w-4 text-amber-600 shrink-0" />
                 )}
-                <div className="text-left">
-                  <span className="block font-bold leading-tight text-slate-900">{currentUser.name}</span>
-                  <span className="block text-[10px] text-slate-500 font-medium">
+                <div className="text-left min-w-0 max-w-[110px] sm:max-w-none">
+                  <span className="block font-bold leading-tight text-slate-900 truncate">{currentUser.name}</span>
+                  <span className="block text-[10px] text-slate-500 font-medium truncate">
                     {roleLabel}
                   </span>
                 </div>

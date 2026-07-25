@@ -210,7 +210,7 @@ export const UserManagement: React.FC = () => {
           </p>
         </div>
 
-        {canManageUsers ? (
+        {canManageUsers && (
           <button
             onClick={openNewUserModal}
             className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 text-xs sm:text-sm transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 shrink-0"
@@ -218,14 +218,6 @@ export const UserManagement: React.FC = () => {
             <UserPlus className="h-4 w-4 stroke-[2.5]" />
             <span>Cadastrar Novo Usuário</span>
           </button>
-        ) : (
-          <div
-            className="rounded-xl bg-slate-100 text-slate-400 font-semibold px-4 py-2.5 text-xs sm:text-sm flex items-center gap-2 shrink-0 cursor-not-allowed border border-slate-200"
-            title="Apenas usuários com perfil Desenvolvedor podem cadastrar novos usuários"
-          >
-            <Lock className="h-4 w-4" />
-            <span>Cadastrar Novo Usuário (Restrito)</span>
-          </div>
         )}
       </div>
 
@@ -233,14 +225,14 @@ export const UserManagement: React.FC = () => {
         <div className="rounded-xl bg-amber-50 p-3.5 text-xs text-amber-800 border border-amber-200 flex items-center gap-2">
           <Lock className="h-4 w-4 text-amber-600 shrink-0" />
           <span>
-            <strong>Modo de Visualização (Supervisor):</strong> Seu perfil possui acesso gerencial de leitura. Apenas o perfil <strong>Desenvolvedor</strong> tem permissão para cadastrar, editar ou excluir usuários.
+            <strong>Acesso Restrito:</strong> Seu perfil (Supervisor) possui acesso gerencial de leitura. Apenas o perfil <strong>Desenvolvedor</strong> tem permissão para cadastrar, editar ou excluir usuários.
           </span>
         </div>
       )}
 
       {/* Users Table */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-100">
               <tr>
@@ -249,7 +241,7 @@ export const UserManagement: React.FC = () => {
                 <th className="py-3 px-4">E-mail de Login</th>
                 <th className="py-3 px-4 text-center">Meta (km/l)</th>
                 <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Ações</th>
+                {canManageUsers && <th className="py-3 px-4 text-right">Ações</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
@@ -295,8 +287,8 @@ export const UserManagement: React.FC = () => {
                     </span>
                   </td>
 
-                  <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                    {canManageUsers ? (
+                  {canManageUsers && (
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
@@ -322,10 +314,8 @@ export const UserManagement: React.FC = () => {
                           </button>
                         )}
                       </div>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 italic font-normal">Somente leitura</span>
-                    )}
-                  </td>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
