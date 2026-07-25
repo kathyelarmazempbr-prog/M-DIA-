@@ -24,6 +24,8 @@ import {
 export const FleetOverview: React.FC = () => {
   const { trips, users, currentUser, updateTrip, deleteTrip, clearAllTrips, getPerformanceColor } = useApp();
 
+  const isDeveloper = currentUser?.role === 'developer';
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [selectedCavalo, setSelectedCavalo] = useState('');
@@ -38,7 +40,7 @@ export const FleetOverview: React.FC = () => {
   const [isClearing, setIsClearing] = useState(false);
 
   const handleConfirmClearAll = async () => {
-    if (currentUser?.role !== 'developer') {
+    if (!isDeveloper) {
       console.warn('[RBAC BLOQUEIO] Apenas o perfil Desenvolvedor tem permissão para zerar o histórico.');
       setShowClearModal(false);
       return;
@@ -229,7 +231,7 @@ export const FleetOverview: React.FC = () => {
                 <span>Limpar Filtros</span>
               </button>
             )}
-            {currentUser?.role === 'developer' && (
+            {isDeveloper && (
               <button
                 onClick={() => setShowClearModal(true)}
                 className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs"
@@ -337,7 +339,7 @@ export const FleetOverview: React.FC = () => {
                   <th className="py-3 px-4">Sider</th>
                   <th className="py-3 px-4 text-center">Média</th>
                   <th className="py-3 px-4 text-center">Comprovante</th>
-                  {currentUser?.role === 'developer' && (
+                  {isDeveloper && (
                     <th className="py-3 px-4 text-right">Ações</th>
                   )}
                 </tr>
@@ -377,7 +379,7 @@ export const FleetOverview: React.FC = () => {
                         <ImageIcon className="h-4 w-4" />
                       </button>
                     </td>
-                    {currentUser?.role === 'developer' && (
+                    {isDeveloper && (
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
                           <button
