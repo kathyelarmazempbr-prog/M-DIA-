@@ -340,20 +340,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active: userData.active ?? true,
     };
 
-    // 1. Atualização do Estado React (Força Re-render na Interface)
+    // 1. Atualização do Estado React (Apenas por ID único)
     setUsers((prev) => {
-      const exists = prev.some((u) => u.id === newUser.id || (u.code && u.code.toLowerCase() === newUser.code.toLowerCase()));
+      const exists = prev.some((u) => u.id === newUser.id);
       if (exists) {
-        return prev.map((u) => (u.code.toLowerCase() === newUser.code.toLowerCase() ? newUser : u));
+        return prev.map((u) => (u.id === newUser.id ? newUser : u));
       }
       return [...prev, newUser];
     });
 
-    // 2. Persistência em LocalStorage (Fallback Local)
+    // 2. Persistência em LocalStorage (Apenas por ID único)
     try {
       const storedLocalUsers = localStorage.getItem('app_users');
       const localList: User[] = storedLocalUsers ? JSON.parse(storedLocalUsers) : [];
-      const updatedLocalList = [...localList.filter((u) => u.id !== newUser.id && u.code.toLowerCase() !== newUser.code.toLowerCase()), newUser];
+      const updatedLocalList = [...localList.filter((u) => u.id !== newUser.id), newUser];
       localStorage.setItem('app_users', JSON.stringify(updatedLocalList));
       console.log('[LOCAL STORAGE] Usuário salvo no localStorage com sucesso.');
     } catch (e) {
@@ -365,11 +365,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await salvarUsuarioFirestore(newUser);
       console.log('[BANCO DE DADOS OK] Usuário sincronizado no Firestore com sucesso! ID:', newUser.id);
     } catch (e) {
-      console.error('[BANCO DE DADOS ERRO] Erro ao sincronizar usuário no Firestore:', e);
-      throw e;
+      console.error('[BANCO DE DADOS ERRO] Erro ao sincronizar usuário no Firestore (mantido localmente):', e);
     }
 
-    // 4. Cadastro no Firebase Auth via Instância Secundária (Mantém sessão do Admin intacta)
+    // 4. Cadastro no Firebase Auth via Instância Secundária
     if (newUser.email && newUser.password) {
       try {
         await criarUsuarioAuthSemDeslogarAdmin(newUser.email, newUser.password);
@@ -391,17 +390,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active: updatedUser.active ?? true,
     };
 
-    // 1. Atualização do Estado React (Força Re-render na Interface)
-    setUsers((prev) => prev.map((u) => (u.id === cleanedUser.id || (u.code && u.code.toLowerCase() === cleanedUser.code.toLowerCase()) ? cleanedUser : u)));
+    // 1. Atualização do Estado React (Apenas por ID único)
+    setUsers((prev) => prev.map((u) => (u.id === cleanedUser.id ? cleanedUser : u)));
     if (currentUser?.id === cleanedUser.id) {
       setCurrentUser(cleanedUser);
     }
 
-    // 2. Persistência no LocalStorage (Fallback Local)
+    // 2. Persistência no LocalStorage (Apenas por ID único)
     try {
       const storedLocalUsers = localStorage.getItem('app_users');
       const localList: User[] = storedLocalUsers ? JSON.parse(storedLocalUsers) : [];
-      const updatedLocalList = localList.map((u) => (u.id === cleanedUser.id || u.code.toLowerCase() === cleanedUser.code.toLowerCase() ? cleanedUser : u));
+      const updatedLocalList = localList.map((u) => (u.id === cleanedUser.id ? cleanedUser : u));
       localStorage.setItem('app_users', JSON.stringify(updatedLocalList));
       console.log('[LOCAL STORAGE] Usuário atualizado no localStorage com sucesso.');
     } catch (e) {
@@ -413,15 +412,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await salvarUsuarioFirestore(cleanedUser);
       console.log('[BANCO DE DADOS OK] Usuário atualizado no Firestore com sucesso!');
     } catch (e) {
-      console.error('[BANCO DE DADOS ERRO] Erro ao atualizar usuário no Firestore:', e);
-      throw e;
+      console.error('[BANCO DE DADOS ERRO] Erro ao atualizar usuário no Firestore (mantido localmente):', e);
     }
 
     return cleanedUser;
   };
 
   const deleteUser = async (userId: string): Promise<void> => {
-    console.log('[DELETE USER] Excluindo usuário por ID:', userId);
+    console.log('[DELETE USER] Excluindo usuário por ID único:', userId);
     if (!userId) return;
 
     // 1. Atualização do estado local por ID único
@@ -431,7 +429,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(null);
     }
 
-    // 2. Atualização do localStorage
+    // 2. Atualização do localStorage por ID único
     try {
       const storedLocalUsers = localStorage.getItem('app_users');
       if (storedLocalUsers) {
@@ -449,7 +447,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('[DELETE USER OK] Usuário excluído com sucesso do banco de dados!');
     } catch (e) {
       console.error('[DELETE USER ERRO] Erro ao excluir usuário no banco de dados:', e);
-      throw e;
     }
   };
 
