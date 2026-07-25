@@ -16,6 +16,7 @@ import {
   salvarUsuarioFirestore,
   excluirUsuarioFirestore,
   sincronizarUsuariosIniciaisFirestore,
+  sincronizarLancamentosIniciaisFirestore,
 } from '../lib/firebaseService';
 
 interface AppContextType {
@@ -76,9 +77,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [trips, setTrips] = useState<Trip[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // Sincroniza e ouve a coleção de usuários no Firestore em tempo real
+  // Sincroniza e ouve as coleções do Firestore em tempo real
   useEffect(() => {
     sincronizarUsuariosIniciaisFirestore(INITIAL_USERS).catch(console.error);
+    sincronizarLancamentosIniciaisFirestore(INITIAL_TRIPS).catch(console.error);
 
     const unsubUsers = ouvirUsuariosEmTempoReal((cloudUsers) => {
       if (cloudUsers && cloudUsers.length > 0) {

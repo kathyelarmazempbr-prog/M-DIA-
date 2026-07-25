@@ -115,9 +115,9 @@ export const salvarLancamento = async (dados: {
   url_comprovante?: string;
   observacoes?: string;
 }): Promise<string> => {
-  console.log('Tentando conectar ao banco de dados para salvar lançamento...');
+  console.log('[FIREBASE CRUD] Salvando lançamento no Firestore Cloud:', dados.nome_motorista || dados.cod_motorista);
   if (!db) {
-    console.warn('Firestore não inicializado ou chaves não configuradas. Salvo apenas no estado local.');
+    console.warn('[FIREBASE WARNING] Firestore não inicializado. Salvo em memória local.');
     return 'local-' + Date.now();
   }
   try {
@@ -139,18 +139,11 @@ export const salvarLancamento = async (dados: {
       criado_em: serverTimestamp(),
     };
 
-    const addPromise = addDoc(collection(db, COLLECTION_LANCAMENTOS), docData).then((ref) => ref.id);
-    const resultId = await withTimeout(addPromise, 3000, 'local-' + Date.now());
-
-    if (resultId && !resultId.startsWith('local-')) {
-      console.log('Lançamento salvo com sucesso no banco de dados na nuvem! ID:', resultId);
-    } else {
-      console.warn('Banco de dados não respondeu a tempo. Lançamento preservado na sessão local.');
-    }
-
-    return resultId;
+    const docRef = await addDoc(collection(db, COLLECTION_LANCAMENTOS), docData);
+    console.log('[FIREBASE CRUD OK] Lançamento salvo com sucesso no banco de dados na nuvem! ID:', docRef.id);
+    return docRef.id;
   } catch (error) {
-    console.error('Erro ao salvar lançamento no banco de dados:', error);
+    console.error('[FIREBASE CRUD ERRO] Erro ao salvar lançamento no banco de dados na nuvem:', error);
     return 'local-' + Date.now();
   }
 };
@@ -597,6 +590,39 @@ export const sincronizarUsuariosIniciaisFirestore = async (initialUsers: User[])
     }
   } catch (e) {
     console.error('Erro ao sincronizar usuários iniciais no Firestore:', e);
+  }
+};
+
+/**
+ * Sincroniza lançamentos padrões de fábrica no Firestore se a coleção estiver vazia
+ */
+export const sincronizarLancamentosIniciaisFirestore = async (initialTrips: Trip[]): Promise<void> => {
+  if (!db) return;
+  try {
+    const colRef = collection(db, COLLECTION_LANCAMENTOS);
+    const snapshot = await getDocs(colRef);
+    if (snapshot.empty) {
+      console.log('[FIREBASE SEED] Inicializando coleção de lançamentos no Firestore...');
+      for (const t of initialTrips) {
+        await salvarLancamento({
+          id_motorista: t.driverId,
+          cod_motorista: t.driverCode,
+          nome_motorista: t.driverName,
+          data_registro: t.date,
+          destino: t.destinationName,
+          codigo_destino: t.destinationCode,
+          origem: t.originName,
+          codigo_origem: t.originCode,
+          placa_cavalo: t.cavaloPlate,
+          placa_carreta: t.siderPlate,
+          media_consumo: t.kml,
+          url_comprovante: t.proofUrl,
+          observacoes: t.notes,
+        });
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao sincronizar lançamentos iniciais no Firestore:', e);
   }
 };
 
