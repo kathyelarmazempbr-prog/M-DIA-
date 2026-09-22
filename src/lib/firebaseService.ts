@@ -51,10 +51,38 @@ export interface LancamentoFirebase {
   atualizado_em?: any;
 }
 
+// Lista de observações padrão dos testes/mocks originais para descarte automático
+export const MOCK_NOTES_LIST = [
+  'Pista em boas condições. Velocidade constante mantida.',
+  'Condução econômica mantida sem reduções bruscas.',
+  'Trânsito moderado no trecho de chegada.',
+  'Carga completa com média dentro da meta estabelecida.',
+  'Trecho com serra e vento contrário forte.',
+  'Puxada tranquila com boa velocidade média.',
+  'Giro de motor mantido na faixa verde durante toda a viagem.',
+  'Subida de serras exigiu maiores rotações.',
+  'Ajustada calibragem de pneus na metade da rota.',
+  'Média consistente e condução suave.',
+];
+
 /**
  * Converte um objeto da coleção Firestore para o tipo Trip da aplicação
+ * Retorna null se for documento de sistema (_config_sys_) ou mock antigo
  */
-export const mapperFirebaseParaTrip = (docId: string, data: LancamentoFirebase): Trip => {
+export const mapperFirebaseParaTrip = (docId: string, data: any): Trip | null => {
+  if (!docId || docId.startsWith('_') || data?._sistema) {
+    return null;
+  }
+
+  const obs = (data.observacoes || '').trim();
+  if (MOCK_NOTES_LIST.includes(obs)) {
+    // Purga do banco em segundo plano para não poluir
+    if (db) {
+      deleteDoc(doc(db, COLLECTION_LANCAMENTOS, docId)).catch(() => {});
+    }
+    return null;
+  }
+
   return {
     id: docId,
     date: data.data_registro || new Date().toISOString().split('T')[0],
@@ -101,6 +129,7 @@ export const withTimeout = <T>(promise: Promise<T>, timeoutMs = 3000, fallbackVa
  * Cadastra uma nova média de consumo no Firestore
  */
 export const salvarLancamento = async (dados: {
+  id?: string;
   id_motorista: string;
   cod_motorista: string;
   nome_motorista: string;
@@ -118,10 +147,15 @@ export const salvarLancamento = async (dados: {
   console.log('[FIREBASE CRUD] Salvando lançamento no Firestore Cloud:', dados.nome_motorista || dados.cod_motorista);
   if (!db) {
     console.warn('[FIREBASE WARNING] Firestore não inicializado. Salvo em memória local.');
-    return 'local-' + Date.now();
+    return dados.id || 'local-' + Date.now();
   }
   try {
-    const docData: Omit<LancamentoFirebase, 'id'> = {
+    const colRef = collection(db, COLLECTION_LANCAMENTOS);
+    const docRef = dados.id ? doc(colRef, dados.id) : doc(colRef);
+    const docId = docRef.id;
+
+    const docData: Omit<LancamentoFirebase, 'id'> & { id: string } = {
+      id: docId,
       id_motorista: dados.id_motorista,
       cod_motorista: dados.cod_motorista,
       nome_motorista: dados.nome_motorista,
@@ -137,20 +171,21 @@ export const salvarLancamento = async (dados: {
       observacoes: dados.observacoes || '',
       status: 'aprovado',
       criado_em: serverTimestamp(),
+      atualizado_em: serverTimestamp(),
     };
 
-    const docRef = await addDoc(collection(db, COLLECTION_LANCAMENTOS), docData);
-    console.log('[FIREBASE CRUD OK] Lançamento salvo com sucesso no banco de dados na nuvem! ID:', docRef.id);
-    return docRef.id;
+    await setDoc(docRef, docData, { merge: true });
+    console.log('[FIREBASE CRUD OK] Lançamento salvo com sucesso no banco de dados na nuvem! ID:', docId);
+    return docId;
   } catch (error) {
     console.error('[FIREBASE CRUD ERRO] Erro ao salvar lançamento no banco de dados na nuvem:', error);
-    return 'local-' + Date.now();
+    return dados.id || 'local-' + Date.now();
   }
 };
 
 /**
  * 2. BUSCAR LANÇAMENTOS / HISTÓRICO (READ)
- * Busca lançamentos utilizando filtro where("cod_motorista", "==", usuarioLogado)
+ * Busca lançamentos com filtros seguros e ordenação decrescente
  */
 export const buscarLancamentos = async (filtros?: {
   id_motorista?: string;
@@ -162,26 +197,24 @@ export const buscarLancamentos = async (filtros?: {
   if (!db) return [];
   try {
     const colRef = collection(db, COLLECTION_LANCAMENTOS);
-    let q: any = colRef;
+    const snapshot = await getDocs(colRef);
 
-    if (filtros?.cod_motorista) {
-      q = query(colRef, where('cod_motorista', '==', filtros.cod_motorista));
-    } else if (filtros?.id_motorista) {
-      q = query(colRef, where('id_motorista', '==', filtros.id_motorista));
-    }
+    let lista: Trip[] = snapshot.docs
+      .map((docSnap) => mapperFirebaseParaTrip(docSnap.id, docSnap.data()))
+      .filter((t): t is Trip => t !== null);
 
-    const snapshot = await getDocs(q);
-
-    let lista: Trip[] = snapshot.docs.map((docSnap) => {
-      const data = docSnap.data() as LancamentoFirebase;
-      return mapperFirebaseParaTrip(docSnap.id, data);
-    });
-
-    // Ordenar por data decrescente
-    lista.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    // Filtros adicionais em memória
+    // Filtros de motorista (insensível a maiúsculas/minúsculas)
     if (filtros) {
+      const fCode = (filtros.cod_motorista || '').trim().toUpperCase();
+      const fId = (filtros.id_motorista || '').trim();
+      if (fCode || fId) {
+        lista = lista.filter((t) => {
+          const tCode = (t.driverCode || '').trim().toUpperCase();
+          const tId = (t.driverId || '').trim();
+          return (fCode && tCode === fCode) || (fId && tId === fId);
+        });
+      }
+
       if (filtros.texto_destino && filtros.texto_destino.trim() !== '') {
         const term = filtros.texto_destino.toLowerCase();
         lista = lista.filter(
@@ -202,6 +235,9 @@ export const buscarLancamentos = async (filtros?: {
       }
     }
 
+    // Ordenar por data decrescente
+    lista.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     return lista;
   } catch (error) {
     console.error('Erro ao buscar lançamentos:', error);
@@ -210,8 +246,8 @@ export const buscarLancamentos = async (filtros?: {
 };
 
 /**
- * 2b. OUVIR LANÇAMENTOS EM TEMPO REAL COM SEGURANÇA (REALTIME LISTEN)
- * Garante cláusula where("cod_motorista", "==", usuarioLogado)
+ * 2b. OUVIR LANÇAMENTOS EM TEMPO REAL COM SINCRONIZAÇÃO INSTANTÂNEA
+ * Atualiza automaticamente todos os dispositivos conectados
  */
 export const ouvirLancamentosEmTempoReal = (
   callback: (trips: Trip[]) => void,
@@ -223,29 +259,34 @@ export const ouvirLancamentosEmTempoReal = (
   }
   try {
     const colRef = collection(db, COLLECTION_LANCAMENTOS);
-    let q: any = colRef;
-
-    if (filtros?.cod_motorista) {
-      q = query(colRef, where('cod_motorista', '==', filtros.cod_motorista));
-    } else if (filtros?.id_motorista) {
-      q = query(colRef, where('id_motorista', '==', filtros.id_motorista));
-    }
 
     const unsubscribe = onSnapshot(
-      q,
+      colRef,
       (snapshot: any) => {
         try {
-          let lista: Trip[] = snapshot.docs.map((docSnap: any) => {
-            const data = docSnap.data() as LancamentoFirebase;
-            return mapperFirebaseParaTrip(docSnap.id, data);
-          });
+          let lista: Trip[] = snapshot.docs
+            .map((docSnap: any) => mapperFirebaseParaTrip(docSnap.id, docSnap.data()))
+            .filter((t: any): t is Trip => t !== null);
+
+          // Se for filtro de motorista, filtra de forma case-insensitive
+          if (filtros) {
+            const fCode = (filtros.cod_motorista || '').trim().toUpperCase();
+            const fId = (filtros.id_motorista || '').trim();
+            if (fCode || fId) {
+              lista = lista.filter((t) => {
+                const tCode = (t.driverCode || '').trim().toUpperCase();
+                const tId = (t.driverId || '').trim();
+                return (fCode && tCode === fCode) || (fId && tId === fId);
+              });
+            }
+          }
 
           // Ordena por data decrescente
           lista.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
           callback(lista);
         } catch (err) {
-          console.error('Erro ao mapear documentos do Firestore:', err);
+          console.error('Erro ao processar dados em tempo real do Firestore:', err);
         }
       },
       (error) => {
@@ -410,42 +451,100 @@ export const escutarSessaoFirebase = (callback: (user: FirebaseUser | null) => v
 /**
  * ATUALIZAR E EXCLUIR LANÇAMENTOS
  */
-export const atualizarLancamento = async (docId: string, dadosAtuais: Partial<LancamentoFirebase>) => {
-  if (!db || !docId) return;
+export const atualizarLancamento = async (
+  docId: string,
+  dadosAtuais: Partial<LancamentoFirebase>
+): Promise<boolean> => {
+  if (!db || !docId) {
+    console.warn('[FIREBASE UPDATE] Banco não inicializado ou docId ausente.');
+    return false;
+  }
   try {
+    console.log('[FIREBASE UPDATE] Atualizando lançamento no Firestore:', docId);
     const docRef = doc(db, COLLECTION_LANCAMENTOS, docId);
-    await updateDoc(docRef, {
-      ...dadosAtuais,
-      atualizado_em: serverTimestamp(),
-    });
+    await setDoc(
+      docRef,
+      {
+        ...dadosAtuais,
+        atualizado_em: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Fallback: se houver outros documentos com o campo 'id' igual ao docId
+    try {
+      const q = query(collection(db, COLLECTION_LANCAMENTOS), where('id', '==', docId));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        if (d.id !== docId) {
+          await setDoc(d.ref, { ...dadosAtuais, atualizado_em: serverTimestamp() }, { merge: true });
+        }
+      }
+    } catch (eFallback) {}
+
+    console.log('[FIREBASE UPDATE OK] Lançamento atualizado com sucesso no Firestore:', docId);
+    return true;
   } catch (e) {
-    console.error('Erro ao atualizar lançamento no Firestore:', e);
+    console.error('[FIREBASE UPDATE ERRO] Erro ao atualizar lançamento no Firestore:', e);
+    return false;
   }
 };
 
-export const excluirLancamento = async (docId: string) => {
-  if (!db || !docId) return;
+export const excluirLancamento = async (docId: string): Promise<boolean> => {
+  if (!db || !docId) {
+    console.warn('[FIREBASE EXCLUIR] Banco não inicializado ou docId ausente.');
+    return false;
+  }
   try {
+    console.log('[FIREBASE EXCLUIR] Excluindo lançamento no Firestore:', docId);
     const docRef = doc(db, COLLECTION_LANCAMENTOS, docId);
     await deleteDoc(docRef);
+
+    // Fallback: se houver documentos salvos com campo 'id' igual a docId
+    try {
+      const q = query(collection(db, COLLECTION_LANCAMENTOS), where('id', '==', docId));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        if (d.id !== docId) {
+          await deleteDoc(d.ref);
+        }
+      }
+    } catch (eFallback) {}
+
+    console.log('[FIREBASE EXCLUIR OK] Lançamento excluído com sucesso do Firestore:', docId);
+    return true;
   } catch (e) {
-    console.error('Erro ao excluir lançamento no Firestore:', e);
+    console.error('[FIREBASE EXCLUIR ERRO] Erro ao excluir lançamento no Firestore:', e);
+    return false;
   }
 };
 
 /**
  * LIMPEZA TOTAL DE LANÇAMENTOS DO BANCO (RESET OFICIAL)
+ * Remove todos os lançamentos de viagens e mantém apenas o sentinela para impedir reinserções automáticas de clientes legados
  */
 export const apagarTodosLancamentos = async (): Promise<void> => {
   if (!db) return;
   try {
     const colRef = collection(db, COLLECTION_LANCAMENTOS);
     const snapshot = await getDocs(colRef);
-    const deletePromises = snapshot.docs.map((docSnap) =>
-      deleteDoc(doc(db, COLLECTION_LANCAMENTOS, docSnap.id))
-    );
+    console.log(`[FIREBASE RESET] Removendo lançamentos do Firestore...`);
+    const deletePromises = snapshot.docs
+      .filter((docSnap) => !docSnap.id.startsWith('_'))
+      .map((docSnap) => deleteDoc(docSnap.ref));
     await Promise.all(deletePromises);
-    console.log('Todos os lançamentos do Firestore foram excluídos.');
+
+    // Garante que o documento sentinela de controle exista para que snapshot.empty nunca seja true em caches antigos
+    const sentinelRef = doc(db, COLLECTION_LANCAMENTOS, '_config_sys_');
+    await setDoc(sentinelRef, {
+      _sistema: true,
+      descricao: 'Documento sentinela de controle de integridade da nuvem',
+      data_registro: '2099-12-31',
+      media_consumo: 0,
+      atualizado_em: serverTimestamp(),
+    });
+
+    console.log('[FIREBASE RESET OK] Histórico zerado com sucesso e proteção sentinela ativa.');
   } catch (e) {
     console.error('Erro ao apagar todos os lançamentos no Firestore:', e);
   }
@@ -617,36 +716,11 @@ export const sincronizarUsuariosIniciaisFirestore = async (initialUsers: User[])
 };
 
 /**
- * Sincroniza lançamentos padrões de fábrica no Firestore se a coleção estiver vazia
+ * Sincroniza lançamentos padrões de fábrica no Firestore (Desativado para produção limpa)
  */
-export const sincronizarLancamentosIniciaisFirestore = async (initialTrips: Trip[]): Promise<void> => {
-  if (!db) return;
-  try {
-    const colRef = collection(db, COLLECTION_LANCAMENTOS);
-    const snapshot = await getDocs(colRef);
-    if (snapshot.empty) {
-      console.log('[FIREBASE SEED] Inicializando coleção de lançamentos no Firestore...');
-      for (const t of initialTrips) {
-        await salvarLancamento({
-          id_motorista: t.driverId,
-          cod_motorista: t.driverCode,
-          nome_motorista: t.driverName,
-          data_registro: t.date,
-          destino: t.destinationName,
-          codigo_destino: t.destinationCode,
-          origem: t.originName,
-          codigo_origem: t.originCode,
-          placa_cavalo: t.cavaloPlate,
-          placa_carreta: t.siderPlate,
-          media_consumo: t.kml,
-          url_comprovante: t.proofUrl,
-          observacoes: t.notes,
-        });
-      }
-    }
-  } catch (e) {
-    console.error('Erro ao sincronizar lançamentos iniciais no Firestore:', e);
-  }
+export const sincronizarLancamentosIniciaisFirestore = async (_initialTrips?: Trip[]): Promise<void> => {
+  // Mantido vazio para garantir que o banco permaneça 100% limpo em produção
+  return;
 };
 
 

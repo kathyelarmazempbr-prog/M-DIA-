@@ -28,25 +28,40 @@ interface NewTripFormProps {
 }
 
 export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
-  const { currentUser, addTrip, getPerformanceColor } = useApp();
+  const { currentUser, users, addTrip, getPerformanceColor } = useApp();
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Identifica se o usuário atual bate com algum da lista oficial
-  const initialDriverCode = DRIVERS_LIST.find(
-    (d) => d.code === currentUser?.code || d.name === currentUser?.name
-  )?.code || DRIVERS_LIST[0].code;
+  // Motoristas cadastrados no sistema (Firestore / AppContext)
+  const registeredDrivers = (users || []).filter((u) => u.role === 'driver');
+  const availableDrivers = registeredDrivers.length > 0
+    ? registeredDrivers
+    : DRIVERS_LIST.map((d) => ({
+        id: 'usr-' + d.code.toLowerCase(),
+        code: d.code,
+        name: d.name,
+        email: '',
+        password: '',
+        role: 'driver' as const,
+        active: true,
+      }));
+
+  const isDriver = currentUser?.role === 'driver';
+
+  const defaultDriverCode = isDriver
+    ? (currentUser?.code || '')
+    : (availableDrivers[0]?.code || '9013');
 
   const [date, setDate] = useState(todayStr);
-  const [selectedDriverCode, setSelectedDriverCode] = useState(initialDriverCode);
+  const [selectedDriverCode, setSelectedDriverCode] = useState(defaultDriverCode);
 
   // Destino da viagem (fábricas) - em branco por padrão para digitação/seleção limpa
   const [destinationCode, setDestinationCode] = useState('');
   const [destinationCustom, setDestinationCustom] = useState('');
 
   // Equipamentos - em branco por padrão conforme solicitado
-  const [cavaloPlate, setCavaloPlate] = useState('');
-  const [siderPlate, setSiderPlate] = useState('');
+  const [cavaloPlate, setCavaloPlate] = useState(isDriver ? (currentUser?.cavaloPadrao || '') : '');
+  const [siderPlate, setSiderPlate] = useState(isDriver ? (currentUser?.siderPadrao || '') : '');
 
   // Dados da Média - parâmetro base 2,60 km/l
   const [kml, setKml] = useState<string>('2.60');
@@ -61,7 +76,9 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
   const colors = getPerformanceColor(kmlNum);
 
   // Busca objeto do motorista selecionado
-  const activeDriver = DRIVERS_LIST.find((d) => d.code === selectedDriverCode) || DRIVERS_LIST[0];
+  const activeDriver = isDriver
+    ? currentUser
+    : (availableDrivers.find((d) => d.code === selectedDriverCode) || availableDrivers[0]);
 
   const handleDestinationSelect = (code: string) => {
     setDestinationCode(code);
@@ -106,9 +123,9 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
 
     addTrip({
       date,
-      driverId: currentUser.role === 'admin' ? activeDriver.code : currentUser.id,
-      driverCode: activeDriver.code,
-      driverName: activeDriver.name,
+      driverId: activeDriver.id || ('usr-' + (activeDriver.code || '').toLowerCase()),
+      driverCode: activeDriver.code || '',
+      driverName: activeDriver.name || 'Motorista',
       originCode: 'FAB',
       originName: 'FÁBRICA DE ORIGEM',
       destinationCode: destinationCode || 'OUT',
@@ -165,13 +182,13 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
               <span>Motorista Responsável *</span>
             </label>
 
-            {currentUser.role === 'admin' ? (
+            {!isDriver ? (
               <select
                 value={selectedDriverCode}
                 onChange={(e) => setSelectedDriverCode(e.target.value)}
                 className="w-full rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800 focus:border-emerald-500 focus:outline-none"
               >
-                {DRIVERS_LIST.map((d) => (
+                {availableDrivers.map((d) => (
                   <option key={d.code} value={d.code}>
                     COD {d.code} - {d.name}
                   </option>

@@ -36,6 +36,7 @@ export const FleetOverview: React.FC = () => {
   // Modals state
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
@@ -128,11 +129,16 @@ export const FleetOverview: React.FC = () => {
     setEndDate('');
   };
 
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingTrip) {
-      updateTrip(editingTrip);
-      setEditingTrip(null);
+      setIsSavingEdit(true);
+      try {
+        await updateTrip(editingTrip);
+      } finally {
+        setIsSavingEdit(false);
+        setEditingTrip(null);
+      }
     }
   };
 
@@ -515,10 +521,11 @@ export const FleetOverview: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-amber-500 px-4 py-2 font-bold text-slate-950 hover:bg-amber-400 flex items-center gap-1"
+                  disabled={isSavingEdit}
+                  className="rounded-xl bg-amber-500 px-4 py-2 font-bold text-slate-950 hover:bg-amber-400 flex items-center gap-1 disabled:opacity-50"
                 >
                   <Check className="h-4 w-4" />
-                  <span>Salvar Alterações</span>
+                  <span>{isSavingEdit ? 'Salvando...' : 'Salvar Alterações'}</span>
                 </button>
               </div>
             </form>

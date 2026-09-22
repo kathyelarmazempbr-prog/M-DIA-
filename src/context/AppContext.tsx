@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { collection, doc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { User, Trip, PerformanceThresholds } from '../types';
 import { INITIAL_USERS, INITIAL_TRIPS, DEFAULT_THRESHOLDS } from '../data/mockData';
 import {
@@ -28,8 +30,8 @@ interface AppContextType {
   loginAsUser: (user: User) => void;
   logout: () => void;
   addTrip: (newTrip: Omit<Trip, 'id' | 'createdAt' | 'status'>) => Trip;
-  updateTrip: (updatedTrip: Trip) => void;
-  deleteTrip: (tripId: string) => void;
+  updateTrip: (updatedTrip: Trip) => Promise<void>;
+  deleteTrip: (tripId: string) => Promise<void>;
   addUser: (newUser: Omit<User, 'id'>) => Promise<User>;
   updateUser: (updatedUser: User) => Promise<User>;
   deleteUser: (userId: string) => Promise<void>;
@@ -75,12 +77,29 @@ const mergeUserLists = (initial: User[], cloudUsers: User[]): User[] => {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(() => mergeUserLists(INITIAL_USERS, []));
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('mediaplus_session_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const saveCurrentUserSession = (user: User | null) => {
+    setCurrentUser(user);
+    try {
+      if (user) {
+        localStorage.setItem('mediaplus_session_user', JSON.stringify(user));
+      } else {
+        localStorage.removeItem('mediaplus_session_user');
+      }
+    } catch (e) {}
+  };
 
   // Sincroniza e ouve as coleções do Firestore em tempo real
   useEffect(() => {
     sincronizarUsuariosIniciaisFirestore(INITIAL_USERS).catch(console.error);
-    sincronizarLancamentosIniciaisFirestore(INITIAL_TRIPS).catch(console.error);
 
     const unsubUsers = ouvirUsuariosEmTempoReal((cloudUsers) => {
       if (cloudUsers && cloudUsers.length > 0) {
@@ -91,7 +110,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const updatedSelf = merged.find(
             (u) => u.id === prev.id || (u.email && u.email === prev.email) || (u.code && u.code === prev.code)
           );
-          return updatedSelf ? { ...prev, ...updatedSelf } : prev;
+          const nextVal = updatedSelf ? { ...prev, ...updatedSelf } : prev;
+          try {
+            if (nextVal) {
+              localStorage.setItem('mediaplus_session_user', JSON.stringify(nextVal));
+            }
+          } catch (e) {}
+          return nextVal;
         });
       }
     });
@@ -235,106 +260,102 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Firebase Auth signin optional fallback:', e);
     }
 
-    setCurrentUser(foundUser);
+    saveCurrentUserSession(foundUser);
     return true;
   };
 
   const loginAsUser = (user: User) => {
     autenticarNoFirebase(user.email, '123456').catch(console.error);
-    setCurrentUser(user);
+    saveCurrentUserSession(user);
   };
 
   const logout = () => {
     deslogarDoFirebase().catch(console.error);
-    setCurrentUser(null);
+    saveCurrentUserSession(null);
   };
 
   const addTrip = (tripData: Omit<Trip, 'id' | 'createdAt' | 'status'>): Trip => {
-    console.log('Tentando conectar ao banco para salvar lançamento...');
-    const tempId = 'trp-' + Date.now();
+    console.log('[APP] Adicionando novo lançamento...');
+    const tripId = db ? doc(collection(db, 'lancamentos')).id : 'trp-' + Date.now();
     const newTrip: Trip = {
       ...tripData,
-      id: tempId,
+      id: tripId,
       status: 'aprovado',
       createdAt: new Date().toISOString(),
     };
 
     setTrips((prev) => [newTrip, ...prev]);
 
-    // Persiste no Firestore em segundo plano com try/catch
-    try {
-      salvarLancamento({
-        id_motorista: tripData.driverId,
-        cod_motorista: tripData.driverCode,
-        nome_motorista: tripData.driverName,
-        data_registro: tripData.date,
-        destino: tripData.destinationName,
-        codigo_destino: tripData.destinationCode,
-        origem: tripData.originName,
-        codigo_origem: tripData.originCode,
-        placa_cavalo: tripData.cavaloPlate,
-        placa_carreta: tripData.siderPlate,
-        media_consumo: tripData.kml,
-        url_comprovante: tripData.proofUrl,
-        observacoes: tripData.notes,
+    // Persiste imediatamente no Firestore
+    salvarLancamento({
+      id: tripId,
+      id_motorista: tripData.driverId,
+      cod_motorista: tripData.driverCode,
+      nome_motorista: tripData.driverName,
+      data_registro: tripData.date,
+      destino: tripData.destinationName,
+      codigo_destino: tripData.destinationCode,
+      origem: tripData.originName,
+      codigo_origem: tripData.originCode,
+      placa_cavalo: tripData.cavaloPlate,
+      placa_carreta: tripData.siderPlate,
+      media_consumo: tripData.kml,
+      url_comprovante: tripData.proofUrl,
+      observacoes: tripData.notes,
+    })
+      .then((fireId) => {
+        console.log('[APP OK] Lançamento gravado no Firestore com ID:', fireId);
       })
-        .then((fireId) => {
-          if (fireId && !fireId.startsWith('local-')) {
-            console.log('Lançamento salvo com sucesso no banco de dados:', fireId);
-            setTrips((prev) => prev.map((t) => (t.id === tempId ? { ...t, id: fireId } : t)));
-          } else {
-            console.log('Lançamento mantido na sessão local.');
-          }
-        })
-        .catch((err) => console.error('Erro ao salvar lançamento no banco de dados:', err));
-    } catch (e) {
-      console.error('Erro ao salvar lançamento no banco de dados:', e);
-    }
+      .catch((err) => console.error('[APP ERRO] Erro ao salvar lançamento no banco:', err));
 
     return newTrip;
   };
 
-  const updateTrip = (updatedTrip: Trip) => {
-    console.log('Tentando conectar ao banco para atualizar lançamento...');
+  const updateTrip = async (updatedTrip: Trip): Promise<void> => {
+    if (!updatedTrip || !updatedTrip.id) return;
+    console.log('[APP] Atualizando lançamento no banco e na interface:', updatedTrip.id);
     const tripToSave: Trip = {
       ...updatedTrip,
       updatedAt: new Date().toISOString(),
     };
 
+    // Atualização otimista no estado local
     setTrips((prev) => prev.map((t) => (t.id === tripToSave.id ? tripToSave : t)));
 
+    // Gravação definitiva no Firestore
     try {
-      if (tripToSave.id && !tripToSave.id.startsWith('trp-')) {
-        atualizarLancamento(tripToSave.id, {
-          data_registro: tripToSave.date,
-          destino: tripToSave.destinationName,
-          codigo_destino: tripToSave.destinationCode,
-          placa_cavalo: tripToSave.cavaloPlate,
-          placa_carreta: tripToSave.siderPlate,
-          media_consumo: tripToSave.kml,
-          url_comprovante: tripToSave.proofUrl,
-          observacoes: tripToSave.notes,
-        })
-          .then(() => console.log('Lançamento atualizado com sucesso no banco de dados!'))
-          .catch((err) => console.error('Erro ao atualizar no banco de dados:', err));
-      }
+      await atualizarLancamento(tripToSave.id, {
+        data_registro: tripToSave.date,
+        destino: tripToSave.destinationName,
+        codigo_destino: tripToSave.destinationCode,
+        origem: tripToSave.originName,
+        codigo_origem: tripToSave.originCode,
+        placa_cavalo: tripToSave.cavaloPlate,
+        placa_carreta: tripToSave.siderPlate,
+        media_consumo: tripToSave.kml,
+        url_comprovante: tripToSave.proofUrl,
+        observacoes: tripToSave.notes,
+        status: tripToSave.status || 'aprovado',
+      });
+      console.log('[APP OK] Lançamento atualizado no banco de dados com sucesso:', tripToSave.id);
     } catch (e) {
-      console.error('Erro ao atualizar lançamento no banco de dados:', e);
+      console.error('[APP ERRO] Erro ao atualizar lançamento no banco de dados:', e);
     }
   };
 
-  const deleteTrip = (tripId: string) => {
-    console.log('Tentando conectar ao banco para excluir lançamento...');
+  const deleteTrip = async (tripId: string): Promise<void> => {
+    if (!tripId) return;
+    console.log('[APP] Excluindo lançamento permanentemente no banco e na interface:', tripId);
+
+    // Remoção otimista do estado local
     setTrips((prev) => prev.filter((t) => t.id !== tripId));
 
+    // Exclusão definitiva no Firestore
     try {
-      if (tripId && !tripId.startsWith('trp-')) {
-        excluirLancamento(tripId)
-          .then(() => console.log('Lançamento excluído com sucesso do banco de dados!'))
-          .catch((err) => console.error('Erro ao excluir no banco de dados:', err));
-      }
+      await excluirLancamento(tripId);
+      console.log('[APP OK] Lançamento excluído do banco de dados com sucesso:', tripId);
     } catch (e) {
-      console.error('Erro ao excluir lançamento no banco de dados:', e);
+      console.error('[APP ERRO] Erro ao excluir lançamento no banco de dados:', e);
     }
   };
 

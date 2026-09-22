@@ -113,7 +113,7 @@ export const RankingsView: React.FC = () => {
         </div>
 
         {/* Podium Top 3 Drivers Cards */}
-        {driverRankings.length >= 3 && (
+        {driverRankings.length >= 3 ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto pt-2">
             {/* 2nd Place */}
             <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200/80 text-center flex flex-col justify-between order-2 sm:order-1 transform sm:translate-y-2 shadow-xs">
@@ -161,6 +161,10 @@ export const RankingsView: React.FC = () => {
               </div>
             </div>
           </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400 text-xs">
+            Aguardando os primeiros lançamentos para calcular o ranking e formar o pódio.
+          </div>
         )}
       </div>
 
@@ -178,7 +182,6 @@ export const RankingsView: React.FC = () => {
             <User className="h-4 w-4" />
             <span>MOTORISTAS</span>
           </button>
-
           <button
             onClick={() => setRankingType('carreta')}
             className={`flex-1 py-2.5 px-3 text-xs font-black tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase ${
@@ -203,37 +206,43 @@ export const RankingsView: React.FC = () => {
         </h3>
 
         <div className="h-64 w-full pt-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.6} />
-              <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
-              <YAxis domain={[1.5, 3.5]} stroke="#64748b" fontSize={11} tickLine={false} />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const data = payload[0].payload;
-                    return (
-                      <div className="rounded-xl bg-slate-900 p-2.5 text-xs shadow-xl text-white">
-                        <p className="font-bold">{data.fullName}</p>
-                        <p className="text-emerald-400 font-black mt-0.5">
-                          Média: {data.avgKml} km/l
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Bar dataKey="avgKml" radius={[6, 6, 0, 0]}>
-                {chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={index === 0 ? '#059669' : index === 1 ? '#10b981' : index === 2 ? '#34d399' : '#059669'}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {chartData.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-slate-400 text-xs">
+              Nenhum lançamento registrado para exibição no gráfico.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.6} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
+                <YAxis domain={[1.5, 3.5]} stroke="#64748b" fontSize={11} tickLine={false} />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="rounded-xl bg-slate-900 p-2.5 text-xs shadow-xl text-white">
+                          <p className="font-bold">{data.fullName}</p>
+                          <p className="text-emerald-400 font-black mt-0.5">
+                            Média: {data.avgKml} km/l
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar dataKey="avgKml" radius={[6, 6, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={index === 0 ? '#059669' : index === 1 ? '#10b981' : index === 2 ? '#34d399' : '#059669'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -247,62 +256,74 @@ export const RankingsView: React.FC = () => {
 
         <div className="overflow-x-auto custom-scrollbar">
           {rankingType === 'driver' && (
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-100">
-                <tr>
-                  <th className="py-3 px-4">Posição</th>
-                  <th className="py-3 px-4">Motorista</th>
-                  <th className="py-3 px-4 text-center">Melhor Média</th>
-                  <th className="py-3 px-4 text-right">Média Geral</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-                {driverRankings.map((item, idx) => (
-                  <tr key={item.driverId} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3.5 px-4 whitespace-nowrap font-bold text-slate-500">
-                      {idx === 0 ? '🥇 1º' : idx === 1 ? '🥈 2º' : idx === 2 ? '🥉 3º' : `${idx + 1}º`}
-                    </td>
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <div className="font-bold text-slate-800">{item.driverName}</div>
-                      <div className="text-[10px] text-slate-400">{item.driverCode}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-amber-600 font-bold">
-                      {item.bestKml.toFixed(2)} km/l
-                    </td>
-                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                      <KmlBadge kml={item.avgKml} size="md" showLabel />
-                    </td>
+            driverRankings.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                Nenhum motorista com viagens cadastradas no momento.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-100">
+                  <tr>
+                    <th className="py-3 px-4">Posição</th>
+                    <th className="py-3 px-4">Motorista</th>
+                    <th className="py-3 px-4 text-center">Melhor Média</th>
+                    <th className="py-3 px-4 text-right">Média Geral</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                  {driverRankings.map((item, idx) => (
+                    <tr key={item.driverId} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3.5 px-4 whitespace-nowrap font-bold text-slate-500">
+                        {idx === 0 ? '🥇 1º' : idx === 1 ? '🥈 2º' : idx === 2 ? '🥉 3º' : `${idx + 1}º`}
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="font-bold text-slate-800">{item.driverName}</div>
+                        <div className="text-[10px] text-slate-400">{item.driverCode}</div>
+                      </td>
+                      <td className="py-3.5 px-4 text-center text-amber-600 font-bold">
+                        {item.bestKml.toFixed(2)} km/l
+                      </td>
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <KmlBadge kml={item.avgKml} size="md" showLabel />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
           )}
 
           {rankingType === 'carreta' && (
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-100">
-                <tr>
-                  <th className="py-3 px-4">Posição</th>
-                  <th className="py-3 px-4">Placa Carreta</th>
-                  <th className="py-3 px-4 text-center">Recorde Registrado</th>
-                  <th className="py-3 px-4 text-right">Média Geral</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-                {carretaRankings.map((item, idx) => (
-                  <tr key={item.plate} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-500">{idx + 1}º</td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{item.plate}</td>
-                    <td className="py-3.5 px-4 text-center text-amber-600 font-bold">
-                      {item.bestKml.toFixed(2)} km/l
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <KmlBadge kml={item.avgKml} size="md" showLabel />
-                    </td>
+            carretaRankings.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                Nenhuma carreta com viagens cadastradas no momento.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-100">
+                  <tr>
+                    <th className="py-3 px-4">Posição</th>
+                    <th className="py-3 px-4">Placa Carreta</th>
+                    <th className="py-3 px-4 text-center">Recorde Registrado</th>
+                    <th className="py-3 px-4 text-right">Média Geral</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                  {carretaRankings.map((item, idx) => (
+                    <tr key={item.plate} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-500">{idx + 1}º</td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{item.plate}</td>
+                      <td className="py-3.5 px-4 text-center text-amber-600 font-bold">
+                        {item.bestKml.toFixed(2)} km/l
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <KmlBadge kml={item.avgKml} size="md" showLabel />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
           )}
         </div>
       </div>
