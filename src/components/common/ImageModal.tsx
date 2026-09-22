@@ -12,6 +12,47 @@ export const ImageModal: React.FC<ImageModalProps> = ({ imageUrl, title = 'Compr
 
   const hasImage = Boolean(imageUrl && imageUrl.trim() !== '');
 
+  const handleOpenInNewTab = () => {
+    if (!imageUrl) return;
+
+    const newTab = window.open();
+    if (newTab) {
+      newTab.document.write(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${title || 'Comprovante'}</title>
+            <style>
+              body {
+                margin: 0;
+                padding: 0;
+                background-color: #0f172a;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                font-family: system-ui, -apple-system, sans-serif;
+              }
+              img {
+                max-width: 95vw;
+                max-height: 95vh;
+                object-fit: contain;
+                border-radius: 8px;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+              }
+            </style>
+          </head>
+          <body>
+            <img src="${imageUrl}" alt="${title || 'Comprovante'}" />
+          </body>
+        </html>
+      `);
+      newTab.document.close();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="relative max-h-[90vh] max-w-2xl w-full rounded-2xl bg-slate-900 p-4 text-white shadow-2xl border border-slate-700 overflow-hidden flex flex-col">
@@ -23,15 +64,14 @@ export const ImageModal: React.FC<ImageModalProps> = ({ imageUrl, title = 'Compr
           </div>
           <div className="flex items-center gap-2">
             {hasImage && (
-              <a
-                href={imageUrl}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={handleOpenInNewTab}
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
                 title="Abrir em nova aba"
               >
                 <ExternalLink className="h-5 w-5" />
-              </a>
+              </button>
             )}
             <button
               onClick={onClose}
