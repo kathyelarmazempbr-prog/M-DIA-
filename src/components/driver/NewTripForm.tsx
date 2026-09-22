@@ -59,9 +59,9 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
   const [destinationCode, setDestinationCode] = useState('');
   const [destinationCustom, setDestinationCustom] = useState('');
 
-  // Equipamentos - em branco por padrão conforme solicitado
-  const [cavaloPlate, setCavaloPlate] = useState(isDriver ? (currentUser?.cavaloPadrao || '') : '');
-  const [siderPlate, setSiderPlate] = useState(isDriver ? (currentUser?.siderPadrao || '') : '');
+  // Equipamentos - campos sempre em branco sem adição automática
+  const [cavaloPlate, setCavaloPlate] = useState('');
+  const [siderPlate, setSiderPlate] = useState('');
 
   // Dados da Média - parâmetro base 2,60 km/l
   const [kml, setKml] = useState<string>('2.60');
@@ -140,6 +140,12 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
     setSubmitted(true);
     setTimeout(() => {
       setSubmitted(false);
+      setCavaloPlate('');
+      setSiderPlate('');
+      setDestinationCode('');
+      setDestinationCustom('');
+      setNotes('');
+      setProofImage(null);
       if (onSuccess) onSuccess();
     }, 1500);
   };
