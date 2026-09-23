@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { User, UserRole } from '../../types';
-import { UserPlus, Edit2, ShieldCheck, UserCheck, Trash2, Check, X, Code, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
+import { UserPlus, Edit2, ShieldCheck, UserCheck, Trash2, Check, X, Code, AlertCircle, CheckCircle2, Lock, Eye, EyeOff } from 'lucide-react';
 
 export const UserManagement: React.FC = () => {
   const { users, addUser, updateUser, deleteUser, currentUser } = useApp();
@@ -43,6 +43,7 @@ export const UserManagement: React.FC = () => {
   const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<UserRole>('driver');
   const [targetKml, setTargetKml] = useState('');
   const [phone, setPhone] = useState('');
@@ -56,6 +57,7 @@ export const UserManagement: React.FC = () => {
     setCode('');
     setEmail('');
     setPassword('');
+    setShowPassword(false);
     setRole('driver');
     setTargetKml('');
     setPhone('');
@@ -70,7 +72,9 @@ export const UserManagement: React.FC = () => {
     setName(usr.name);
     setCode(usr.code);
     setEmail(usr.email || '');
-    setPassword(''); // Garantir que a senha venha vazia ao abrir o modal para evitar preenchimento automático
+    // Carrega a senha cadastrada para visualização e alteração transparente
+    setPassword(usr.password || '123456');
+    setShowPassword(false);
     setRole(usr.role);
     setTargetKml(usr.targetKml !== undefined && usr.targetKml !== null ? String(usr.targetKml) : '');
     setPhone(usr.phone || '');
@@ -400,7 +404,7 @@ export const UserManagement: React.FC = () => {
                   </label>
                   <div className="relative">
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       id="user-password-input"
                       name="new_user_password_no_autofill"
                       value={password}
@@ -409,9 +413,21 @@ export const UserManagement: React.FC = () => {
                       autoComplete="new-password"
                       data-lpignore="true"
                       data-form-type="other"
-                      placeholder=""
-                      className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none font-mono transition-colors"
+                      placeholder={editingUser ? 'Senha cadastrada' : 'Digite a senha'}
+                      className="w-full rounded-xl bg-slate-50 border border-slate-200 pl-3 pr-9 py-2 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none font-mono transition-colors text-xs"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 rounded focus:outline-none transition-colors"
+                      title={showPassword ? 'Ocultar senha' : 'Ver senha digitada'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
