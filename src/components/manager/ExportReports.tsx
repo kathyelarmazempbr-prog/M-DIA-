@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { exportTripsToExcel, exportTripsToCSV, formatDateBR, formatTripForExport } from '../../utils/exportUtils';
-import { FileSpreadsheet, Download, Filter, Calendar, Check, RefreshCw } from 'lucide-react';
+import { FileSpreadsheet, Download, Filter, Calendar, RefreshCw } from 'lucide-react';
 
 export const ExportReports: React.FC = () => {
   const { trips, users } = useApp();
@@ -110,24 +110,13 @@ export const ExportReports: React.FC = () => {
             />
           </div>
         </div>
-
-        {/* Info Column Structure Banner */}
-        <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80 text-xs text-slate-700 space-y-1">
-          <p className="font-bold text-emerald-700 flex items-center gap-1.5">
-            <Check className="h-4 w-4" />
-            <span>Colunas Exatas Exportadas no Arquivo:</span>
-          </p>
-          <p className="font-mono text-[11px] text-slate-500 leading-relaxed">
-            Data da Puxada • Cód Motorista • Motorista • Cód Destino • Destino • Carreta (Cavalo) • Sider • Média
-          </p>
-        </div>
       </div>
 
       {/* Excel Table Preview */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
           <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest">
-            Pré-visualização da Planilha ({exportRows.length} linhas)
+            Pré-visualização da Planilha
           </h3>
           <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
             Pronto para exportação
