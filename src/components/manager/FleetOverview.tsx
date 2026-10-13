@@ -34,7 +34,7 @@ export const FleetOverview: React.FC = () => {
   const [endDate, setEndDate] = useState('');
 
   // Modals state
-  const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
+  const [selectedProofTrip, setSelectedProofTrip] = useState<Trip | null>(null);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
@@ -187,8 +187,18 @@ export const FleetOverview: React.FC = () => {
         </div>
       )}
 
-      {/* Proof Modal */}
-      <ImageModal imageUrl={selectedProofUrl} onClose={() => setSelectedProofUrl(null)} />
+      {/* Proof Modal com Zoom Interativo e Evidência de Horário */}
+      <ImageModal
+        imageUrl={selectedProofTrip ? selectedProofTrip.proofUrl || null : null}
+        title={`Comprovante - ${selectedProofTrip?.driverName || 'Motorista'}`}
+        timestamp={selectedProofTrip?.proofCapturedAt || selectedProofTrip?.createdAt}
+        metadataInfo={
+          selectedProofTrip
+            ? `Motorista: ${selectedProofTrip.driverName} (${selectedProofTrip.driverCode}) • Cavalo: ${selectedProofTrip.cavaloPlate} • Média: ${selectedProofTrip.kml.toFixed(2)} km/l`
+            : undefined
+        }
+        onClose={() => setSelectedProofTrip(null)}
+      />
 
       {/* KPI Cards Header */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -374,7 +384,7 @@ export const FleetOverview: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <button
-                        onClick={() => setSelectedProofUrl(trip.proofUrl || '')}
+                        onClick={() => setSelectedProofTrip(trip)}
                         className={`p-1.5 rounded-lg transition-colors inline-flex ${
                           trip.proofUrl
                             ? 'bg-slate-100 text-emerald-700 hover:bg-emerald-50'

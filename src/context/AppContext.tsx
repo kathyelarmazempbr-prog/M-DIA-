@@ -301,6 +301,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       placa_carreta: tripData.siderPlate,
       media_consumo: tripData.kml,
       url_comprovante: tripData.proofUrl,
+      horario_foto: tripData.proofCapturedAt || (tripData.proofUrl ? new Date().toISOString() : undefined),
       observacoes: tripData.notes,
     })
       .then((fireId) => {
@@ -334,6 +335,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         placa_carreta: tripToSave.siderPlate,
         media_consumo: tripToSave.kml,
         url_comprovante: tripToSave.proofUrl,
+        horario_foto: tripToSave.proofCapturedAt,
         observacoes: tripToSave.notes,
         status: tripToSave.status || 'aprovado',
       });

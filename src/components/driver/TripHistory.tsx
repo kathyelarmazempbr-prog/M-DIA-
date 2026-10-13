@@ -13,7 +13,7 @@ export const TripHistory: React.FC = () => {
   const [filterCavalo, setFilterCavalo] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
+  const [selectedTripForProof, setSelectedTripForProof] = useState<Trip | null>(null);
 
   if (!currentUser) return null;
 
@@ -92,8 +92,18 @@ export const TripHistory: React.FC = () => {
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
-      {/* Proof Lightbox Modal */}
-      <ImageModal imageUrl={selectedProofUrl} onClose={() => setSelectedProofUrl(null)} />
+      {/* Proof Lightbox Modal com Zoom e Evidência */}
+      <ImageModal
+        imageUrl={selectedTripForProof ? selectedTripForProof.proofUrl || null : null}
+        title={`Comprovante - ${selectedTripForProof?.driverName || 'Motorista'}`}
+        timestamp={selectedTripForProof?.proofCapturedAt || selectedTripForProof?.createdAt}
+        metadataInfo={
+          selectedTripForProof
+            ? `Cavalo: ${selectedTripForProof.cavaloPlate} • Destino: ${selectedTripForProof.destinationName} • Média: ${selectedTripForProof.kml.toFixed(2)} km/l`
+            : undefined
+        }
+        onClose={() => setSelectedTripForProof(null)}
+      />
 
       {/* Filter Bar Card */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-xs space-y-3">
@@ -241,7 +251,7 @@ export const TripHistory: React.FC = () => {
                 ) : <div />}
 
                 <button
-                  onClick={() => setSelectedProofUrl(trip.proofUrl || '')}
+                  onClick={() => setSelectedTripForProof(trip)}
                   className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-xl border transition-colors ${
                     trip.proofUrl
                       ? 'text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'

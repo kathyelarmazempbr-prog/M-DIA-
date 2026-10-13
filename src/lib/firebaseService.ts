@@ -45,6 +45,7 @@ export interface LancamentoFirebase {
   placa_carreta: string;
   media_consumo: number;
   url_comprovante?: string;
+  horario_foto?: string; // Evidência: data e horário de captura da foto pela câmera
   observacoes?: string;
   status: 'aprovado' | 'pendente' | 'corrigido';
   criado_em?: any;
@@ -97,6 +98,7 @@ export const mapperFirebaseParaTrip = (docId: string, data: any): Trip | null =>
     siderPlate: data.placa_carreta || '',
     kml: Number(data.media_consumo) || 0,
     proofUrl: data.url_comprovante || '',
+    proofCapturedAt: data.horario_foto || (data.criado_em?.toDate ? data.criado_em.toDate().toISOString() : undefined),
     notes: data.observacoes || '',
     status: data.status || 'aprovado',
     createdAt: data.criado_em?.toDate ? data.criado_em.toDate().toISOString() : new Date().toISOString(),
@@ -142,6 +144,7 @@ export const salvarLancamento = async (dados: {
   placa_carreta: string;
   media_consumo: number;
   url_comprovante?: string;
+  horario_foto?: string;
   observacoes?: string;
 }): Promise<string> => {
   console.log('[FIREBASE CRUD] Salvando lançamento no Firestore Cloud:', dados.nome_motorista || dados.cod_motorista);
@@ -168,6 +171,7 @@ export const salvarLancamento = async (dados: {
       placa_carreta: dados.placa_carreta.toUpperCase(),
       media_consumo: Number(dados.media_consumo),
       url_comprovante: dados.url_comprovante || '',
+      horario_foto: dados.horario_foto || (dados.url_comprovante ? new Date().toISOString() : ''),
       observacoes: dados.observacoes || '',
       status: 'aprovado',
       criado_em: serverTimestamp(),

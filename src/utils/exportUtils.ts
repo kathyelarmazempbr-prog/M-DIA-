@@ -14,6 +14,22 @@ export function formatDateBR(dateStr: string): string {
 }
 
 /**
+ * Format timestamp or ISO string to BR format DD/MM/YYYY às HH:mm:ss
+ */
+export function formatDateTimeBR(isoOrDateStr?: string): string {
+  if (!isoOrDateStr) return '';
+  try {
+    const d = new Date(isoOrDateStr);
+    if (isNaN(d.getTime())) return isoOrDateStr;
+    const date = d.toLocaleDateString('pt-BR');
+    const time = d.toLocaleTimeString('pt-BR');
+    return `${date} às ${time}`;
+  } catch {
+    return isoOrDateStr;
+  }
+}
+
+/**
  * Exact columns required by user specifications:
  * Data da Puxada | Cód Motorista | Motorista | Cód Destino | Destino | Carreta (Cavalo) | Sider | Média
  */

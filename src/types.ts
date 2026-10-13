@@ -31,6 +31,7 @@ export interface Trip {
   liters?: number;
   distanceKm?: number;
   proofUrl?: string; // Image or receipt photo preview
+  proofCapturedAt?: string; // Horário de captura da foto na câmera para evidência
   notes?: string;
   status: 'aprovado' | 'pendente' | 'corrigido';
   createdAt: string;

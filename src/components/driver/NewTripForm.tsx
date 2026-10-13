@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { KmlBadge } from '../common/KmlBadge';
 import { CameraModal } from '../common/CameraModal';
-import { Send, Camera, Upload, CheckCircle, Fuel, Truck, Calendar, FileText, UserCheck } from 'lucide-react';
+import { ImageModal } from '../common/ImageModal';
+import { Send, Camera, CheckCircle, Fuel, Truck, Calendar, FileText, UserCheck, ZoomIn, Clock, Trash2, RefreshCw } from 'lucide-react';
 import { uploadComprovante } from '../../lib/firebaseService';
 
 // 1. Destinos/Fábricas Oficiais do Sistema
@@ -67,8 +68,10 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
   const [kml, setKml] = useState<string>('2.60');
   const [notes, setNotes] = useState('');
   const [proofImage, setProofImage] = useState<string | null>(null);
+  const [proofCapturedAt, setProofCapturedAt] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
 
   if (!currentUser) return null;
 
@@ -92,31 +95,6 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
     }
   };
 
-  const [uploading, setUploading] = useState(false);
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploading(true);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProofImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-
-      try {
-        const publicUrl = await uploadComprovante(file);
-        if (publicUrl) {
-          setProofImage(publicUrl);
-        }
-      } catch (err) {
-        console.warn('Utilizando imagem local como fallback:', err);
-      } finally {
-        setUploading(false);
-      }
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!kmlNum || kmlNum <= 0) return;
@@ -135,6 +113,7 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
       kml: kmlNum,
       notes,
       proofUrl: proofImage || '',
+      proofCapturedAt: proofCapturedAt || (proofImage ? new Date().toISOString() : undefined),
     });
 
     setSubmitted(true);
@@ -146,6 +125,7 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
       setDestinationCustom('');
       setNotes('');
       setProofImage(null);
+      setProofCapturedAt(null);
       if (onSuccess) onSuccess();
     }, 1500);
   };
@@ -368,66 +348,121 @@ export const NewTripForm: React.FC<NewTripFormProps> = ({ onSuccess }) => {
             </div>
           </div>
 
-          {/* Section 4: Anexo do comprovante */}
+          {/* Section 4: Foto do Painel / Hodômetro */}
           <div className="space-y-2 pt-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <Camera className="h-4 w-4 text-emerald-600" />
-              <span>Anexo do Comprovante / Foto do Painel</span>
+              <span>Foto do Painel / Hodômetro</span>
             </label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Botão 1: Tirar foto pela Câmera (Inicia a câmera APENAS quando clicado) */}
-              <button
-                type="button"
-                onClick={() => setIsCameraOpen(true)}
-                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100/80 p-3.5 text-xs font-bold text-emerald-800 transition-all cursor-pointer shadow-xs"
-              >
-                <Camera className="h-4 w-4 text-emerald-600" />
-                <span>Tirar Foto com a Câmera</span>
-              </button>
-
-              {/* Botão 2: Selecionar arquivo / galeria */}
-              <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 p-3.5 text-xs font-bold text-slate-700 transition-all shadow-xs">
-                <Upload className="h-4 w-4 text-slate-500" />
-                <span>{uploading ? 'Carregando Arquivo...' : 'Anexar da Galeria'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            {proofImage && (
-              <div className="mt-2 flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="relative h-14 w-16 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
-                  <img src={proofImage} alt="Comprovante Anexado" className="h-full w-full object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
-                    <CheckCircle className="h-3.5 w-3.5" />
-                    <span>Comprovante Anexado</span>
-                  </span>
-                  <p className="text-[11px] text-slate-500 truncate">Imagem pronta para envio junto à média</p>
-                </div>
+            {!proofImage ? (
+              <div>
                 <button
                   type="button"
-                  onClick={() => setProofImage(null)}
-                  className="text-xs font-semibold text-rose-600 hover:underline px-2 py-1"
+                  onClick={() => setIsCameraOpen(true)}
+                  className="w-full flex items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100/90 p-4 text-sm font-bold text-emerald-800 transition-all cursor-pointer shadow-xs group"
                 >
-                  Remover
+                  <div className="p-2 rounded-xl bg-white shadow-xs border border-emerald-200 text-emerald-600 group-hover:scale-105 transition-transform">
+                    <Camera className="h-5 w-5" />
+                  </div>
+                  <span className="text-sm font-bold text-emerald-900">Registrar Foto</span>
                 </button>
+              </div>
+            ) : (
+              <div className="p-3 bg-slate-50 border border-emerald-200 rounded-2xl space-y-3">
+                <div className="flex items-start gap-3">
+                  {/* Miniatura clicável para zoom */}
+                  <button
+                    type="button"
+                    onClick={() => setIsZoomModalOpen(true)}
+                    className="relative h-20 w-24 rounded-xl overflow-hidden border-2 border-emerald-500 bg-slate-900 shrink-0 group cursor-pointer shadow-xs"
+                    title="Clique para dar zoom na foto"
+                  >
+                    <img src={proofImage} alt="Comprovante Anexado" className="h-full w-full object-cover group-hover:opacity-85 transition-opacity" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                      <ZoomIn className="h-6 w-6" />
+                    </div>
+                    <span className="absolute bottom-1 right-1 bg-black/70 text-[9px] text-white px-1 rounded font-mono">
+                      Zoom
+                    </span>
+                  </button>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                      <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+                      <span>Foto Registrada</span>
+                    </div>
+
+                    {proofCapturedAt && (
+                      <p className="text-[11px] text-slate-700 font-medium flex items-center gap-1 mt-1 bg-white border border-slate-200/80 rounded-lg px-2 py-1 w-fit">
+                        <Clock className="h-3 w-3 text-emerald-600 shrink-0" />
+                        <span>Horário:</span>
+                        <strong className="text-slate-900 font-mono">{proofCapturedAt}</strong>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Botões de Ação na Imagem Anexada */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setIsZoomModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                  >
+                    <ZoomIn className="h-3.5 w-3.5" />
+                    <span>Dar Zoom na Imagem</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsCameraOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span>Tirar Outra Foto</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProofImage(null);
+                      setProofCapturedAt(null);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer ml-auto"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Remover</span>
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Modal de captura de foto da câmera */}
+            {/* Modal de captura da câmera (em tempo real ou câmera nativa) */}
             <CameraModal
               isOpen={isCameraOpen}
               onClose={() => setIsCameraOpen(false)}
-              onCapture={(capturedDataUrl) => {
+              driverName={activeDriver?.name}
+              driverCode={activeDriver?.code}
+              cavaloPlate={cavaloPlate}
+              onCapture={(capturedDataUrl, _iso, formattedDateTime) => {
                 setProofImage(capturedDataUrl);
+                setProofCapturedAt(formattedDateTime);
+                uploadComprovante(capturedDataUrl)
+                  .then((url) => {
+                    if (url) setProofImage(url);
+                  })
+                  .catch((err) => console.warn('Usando imagem base64:', err));
               }}
+            />
+
+            {/* Modal de Zoom interativo para ler as informações do painel */}
+            <ImageModal
+              imageUrl={isZoomModalOpen ? proofImage : null}
+              title="Conferência da Foto do Painel"
+              timestamp={proofCapturedAt || undefined}
+              metadataInfo={`Motorista: ${activeDriver?.name || 'Motorista'} • Placa: ${cavaloPlate || '-'} • Média: ${kmlNum.toFixed(2)} km/l`}
+              onClose={() => setIsZoomModalOpen(false)}
             />
           </div>
 
